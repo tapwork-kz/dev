@@ -2190,225 +2190,225 @@ function renderEmpDetailTab(tab, iin) {
   content.innerHTML = html;
 }
 
-// АСИНХРОННАЯ ОТРИСОВКА СЕТКИ КАЛЕНДАРЯ ТАБЕЛЯ (УНИВЕРСАЛЬНАЯ)
+// =====================================================================================
+// ОБНОВЛЕННАЯ АСИНХРОННАЯ ОТРИСОВКА СЕТКИ КАЛЕНДАРЯ ТАБЕЛЯ С ПОДДЕРЖКОЙ ПЕРЕРАБОТОК
+// =====================================================================================
 async function renderTabelCalendarData(iin, containerId = "tabel-calendar-container") {
-    let container = document.getElementById(containerId);
-    if (!container) return;
-    
-    let monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"];
-    let year = window.currentCalYear;
-    let month = window.currentCalMonth;
-    
-    // Пока идут сетевые запросы, аккуратно показываем статус загрузки внутри целевого контейнера
-    container.innerHTML = `<div style="text-align:center; font-size:12px; padding:20px; color:gray;">Загрузка календаря табеля...</div>`;
-    
-    let startDateStr = `${year}-${("0" + (month + 1)).slice(-2)}-01`;
-    let lastDay = new Date(year, month + 1, 0).getDate();
-    let endDateStr = `${year}-${("0" + (month + 1)).slice(-2)}-${("0" + lastDay).slice(-2)}`;
-    let targetMonthStr = ("0" + (month + 1)).slice(-2) + "." + year;
+  let container = document.getElementById(containerId); if (!container) return;
+  let monthNames = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]; let year = window.currentCalYear; let month = window.currentCalMonth;
+  
+  // Пока идут сетевые запросы, аккуратно показываем статус загрузки внутри целевого контейнера
+  container.innerHTML = `<div style="text-align:center; font-size:12px; padding:20px; color:gray;">Загрузка календаря табеля...</div>`;
+  let startDateStr = `${year}-${("0" + (month + 1)).slice(-2)}-01`; let lastDay = new Date(year, month + 1, 0).getDate(); let endDateStr = `${year}-${("0" + (month + 1)).slice(-2)}-${("0" + lastDay).slice(-2)}`; let targetMonthStr = ("0" + (month + 1)).slice(-2) + "." + year;
+  
+  // 1. Извлекаем и фильтруем ОДОБРЕННЫЕ переработки для подсветки дней и карточек под календарем
+  let overtimesSource = [];
+  if (typeof window.adminHistoryGlobal !== 'undefined' && window.adminHistoryGlobal && window.adminHistoryGlobal.length > 0) {
+      overtimesSource = window.adminHistoryGlobal;
+  } else {
+      let dashDataStr = localStorage.getItem("dashData_" + (window.appState?.iin || ""));
+      if (dashDataStr) {
+          let pData = JSON.parse(dashDataStr);
+          overtimesSource = (pData.adminHistory || []).concat(pData.userHistory || []);
+      }
+  }
 
-    // ИСПРАВЛЕНО: Заранее собираем и группируем баллы (плюсовые и минусовые) по дням выбранного месяца для бейджей
-    let ptsSourceAll = [];
-    let empMatchForPts = (typeof allEmployeesData !== 'undefined' && allEmployeesData) ? allEmployeesData.find(e => safeIin(e.iin) === safeIin(iin)) : null;
-    if (empMatchForPts) {
-        ptsSourceAll = empMatchForPts.ptsHistory || [];
-    } else {
-        ptsSourceAll = (typeof myMoneyFinesHistory !== 'undefined') ? window.adminHistoryGlobal || [] : [];
-        if (!ptsSourceAll.length && typeof myDisplayPointsHistory !== 'undefined') ptsSourceAll = myDisplayPointsHistory;
-    }
+  let approvedOvertimes = overtimesSource.filter(r => {
+      if (!r) return false;
+      let isApproved = r.status === "approved" || r.status === "approved_notify_zav" || r.status === "система";
+      let isOvertime = String(r.type).includes("Переработка");
+      let matchesIin = String(r.authorIin || r.author_iin || "").trim() === String(iin).trim() || 
+                       String(r.targetIin || r.target_iin || "").trim() === String(iin).trim();
+      
+      if (!isApproved || !isOvertime || !matchesIin) return false;
+      
+      let metaObj = {};
+      try { metaObj = typeof r.meta === 'string' ? JSON.parse(r.meta) : (typeof r.metadata === 'string' ? JSON.parse(r.metadata) : (r.meta || r.metadata || {})); } catch(e){}
+      let dStr = metaObj.date || r.date || "";
+      return dStr.includes(targetMonthStr);
+  });
 
-    let dailyPoints = {};
-    ptsSourceAll.forEach(p => {
-        if (p && typeof p.date === 'string' && p.date.includes(targetMonthStr)) {
-            let dayNum = parseInt(p.date.split('.')[0], 10);
-            if (!isNaN(dayNum)) {
-                if (!dailyPoints[dayNum]) dailyPoints[dayNum] = { plus: 0, minus: 0 };
-                let valNum = parseFloat(String(p.val).replace('+', '').replace(',', '.')) || 0;
-                if (valNum > 0) {
-                    dailyPoints[dayNum].plus += valNum;
-                } else if (valNum < 0 || p.type === "Штраф" || p.type === "Списание") {
-                    dailyPoints[dayNum].minus += Math.abs(valNum);
-                }
-            }
-        }
-    });
-    
-    let attendanceMap = {};
-    try {
-        if (typeof supabaseClient !== 'undefined' && supabaseClient) {
-            let { data: dbData, error } = await supabaseClient
-                .from('emp_attendance_days')
-                .select('date, status, hours')
-                .eq('iin', iin)
-                .gte('date', startDateStr)
-                .lte('date', endDateStr);
-                
-            if (!error && dbData) {
-                dbData.forEach(row => {
-                    let dayNum = parseInt(row.date.split('-')[2], 10);
-                    attendanceMap[dayNum] = { status: row.status, hours: row.hours };
-                });
-            }
-        }
-    } catch(e) { console.error("Ошибка загрузки дней табеля:", e); }
-    
-    let navHtml = `
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding:0 4px;" class="no-swipe">
-        <button style="width:32px; min-width:32px; height:32px; border-radius:50%; border:none; background:none; color:var(--text-color); display:flex; align-items:center; justify-content:center; cursor:pointer; margin:0; padding:0; -webkit-tap-highlight-color:transparent;" onclick="window.adjustCalMonth('${iin}', -1, '${containerId}')">
-            <span class="material-symbols-rounded" style="font-size:22px; font-weight:bold; opacity:0.9;">chevron_left</span>
-        </button>
-        
-        <div style="position:relative; display:inline-flex; align-items:center; cursor:pointer; margin:0; padding:0; background:none;">
-            <span class="material-symbols-rounded" style="font-size:16px; color:gray; margin-right:5px; display:inline-block; vertical-align:middle;">calendar_month</span>
-            <span style="font-size:14px; font-weight:700; color:var(--text-color); letter-spacing:-0.3px; white-space:nowrap; display:inline-block; margin:0; padding:0; vertical-align:middle;">
-                ${monthNames[month]} ${year}
-            </span>
-            <input type="month" value="${year}-${("0" + (month + 1)).slice(-2)}" 
-                   style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; margin:0; padding:0; -webkit-tap-highlight-color:transparent;" 
-                   onchange="window.onCalMonthPickerChange(this.value, '${iin}', '${containerId}')">
-        </div>
-        
-        <button style="width:32px; min-width:32px; height:32px; border-radius:50%; border:none; background:none; color:var(--text-color); display:flex; align-items:center; justify-content:center; cursor:pointer; margin:0; padding:0; -webkit-tap-highlight-color:transparent;" onclick="window.adjustCalMonth('${iin}', 1, '${containerId}')">
-            <span class="material-symbols-rounded" style="font-size:22px; font-weight:bold; opacity:0.9;">chevron_right</span>
-        </button>
-    </div>
-    `;
-    
-    let daysOfWeek = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-    let weekHeadersHtml = `<div style="display:grid; grid-template-columns:repeat(7, 1fr); text-align:center; font-size:11px; color:gray; font-weight:bold; margin-bottom:6px;">` + 
-        daysOfWeek.map(d => `<div>${d}</div>`).join("") + `</div>`;
-        
-    let firstDayIndex = new Date(year, month, 1).getDay(); 
-    let startOffset = firstDayIndex === 0 ? 6 : firstDayIndex - 1; 
-    
-    let gridHtml = `<div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:5px;">`;
-    for (let i = 0; i < startOffset; i++) {
-        gridHtml += `<div></div>`;
-    }
-    
-    let statusColors = {
-        'РД': { color: '#27ae60', bg: 'rgba(39, 174, 96, 0.08)' }, 
-        'УС': { color: '#9b59b6', bg: 'rgba(155, 89, 182, 0.08)' }, 
-        'БС': { color: '#f39c12', bg: 'rgba(243, 156, 18, 0.08)' }, 
-        'БЛ': { color: '#e67e22', bg: 'rgba(230, 126, 34, 0.08)' }, 
-        'ПР': { color: '#e74c3c', bg: 'rgba(231, 76, 60, 0.08)' }, 
-        'ОТ': { color: '#f1c40f', bg: 'rgba(241, 196, 15, 0.08)' }, 
-        'В':  { color: '#7f8c8d', bg: 'rgba(127, 140, 141, 0.06)' }  
-    };
-    
-    let summary = { rd: 0, us: 0, bs: 0, bl: 0, pr: 0, ot: 0, v: 0 };
-    
-    for (let day = 1; day <= lastDay; day++) {
-        let dayData = attendanceMap[day];
-        let statusText = dayData ? dayData.status : "";
-        
-        if (statusText) {
-            let st = String(statusText).toUpperCase().trim();
-            if (st === 'РД') summary.rd++;
-            else if (st === 'УС') summary.us++;
-            else if (st === 'БС') summary.bs++;
-            else if (st === 'БЛ') summary.bl++;
-            else if (st === 'ПР') summary.pr++;
-            else if (st === 'ОТ') summary.ot++;
-            else if (st === 'В' || st === 'V') summary.v++;
-        }
-        
-        let displayHours = dayData ? dayData.hours : 0;
-        if (displayHours === 9 || displayHours === 12 || displayHours === 13) {
-            displayHours = 10;
-        }
-        let hoursText = (dayData && displayHours && displayHours > 0) ? `${displayHours}ч` : "";
-        
-        let cellStyle = "background:var(--inner-bg, rgba(150,150,150,0.03)); color:var(--text-color); border:none;";
-        if (statusText && statusColors[statusText]) {
-            cellStyle = `background:${statusColors[statusText].bg}; color:${statusColors[statusText].color}; border:none;`;
-        }
-        
-        // ИСПРАВЛЕНО: Генерируем компактные бейджи баллов на календарные дни (абсолютное позиционирование)
-        let ptsBadgeHtml = "";
-        if (dailyPoints[day]) {
-            let dp = dailyPoints[day];
-            ptsBadgeHtml = `<div style="position:absolute; top:-4px; right:-4px; display:flex; flex-direction:column; gap:1px; z-index:5; pointer-events:none;">`;
-            if (dp.plus > 0) {
-                ptsBadgeHtml += `<span style="background:#27ae60; color:white; font-size:7.5px; font-weight:bold; padding:1px 3px; border-radius:4px; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.15);">+${String(dp.plus).replace('.', ',')}</span>`;
-            }
-            if (dp.minus > 0) {
-                ptsBadgeHtml += `<span style="background:#e74c3c; color:white; font-size:7.5px; font-weight:bold; padding:1px 3px; border-radius:4px; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.15); text-shadow:none;">-${String(dp.minus).replace('.', ',')}</span>`;
-            }
-            ptsBadgeHtml += `</div>`;
-        }
-        
-        // Добавлено свойство position:relative для корректного отображения наложенных бейджей
-        gridHtml += `
-        <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; aspect-ratio:1; border-radius:50%; box-sizing:border-box; padding:2px; position:relative; ${cellStyle}">
-            ${ptsBadgeHtml}
-            <span style="font-size:9px; font-weight:bold; opacity:0.5; margin-bottom:1px; line-height:1;">${day}</span>
-            <b style="font-size:10px; text-transform:uppercase; letter-spacing:-0.3px; line-height:1;">${statusText || '-'}</b>
-            ${hoursText ? `<span style="font-size:7px; opacity:0.6; margin-top:1px; font-weight:bold; line-height:1;">${hoursText}</span>` : ''}
-        </div>`;
-    }
-    gridHtml += `</div>`;
-    
-    let planRd = lastDay - summary.v;
-    if (planRd < 0) planRd = 0;
-    
-    let summaryHtml = `
-    <div style="display:flex; justify-content:space-around; align-items:center; margin:14px 0 8px 0; padding:6px 8px; background:rgba(150,150,150,0.05); border-radius:12px;" class="no-swipe">
-        <div class="tabel-item" style="color:#f39c12; font-size:12px;"><span class="tabel-lbl">БС.</span>${summary.bs}</div>
-        <div class="tabel-item" style="color:#e67e22; font-size:12px;"><span class="tabel-lbl">БЛ.</span>${summary.bl}</div>
-        <div class="tabel-item" style="color:#e74c3c; font-size:12px;"><span class="tabel-lbl">ПР.</span>${summary.pr}</div>
-        <div class="tabel-item" style="color:#f1c40f; font-size:12px;"><span class="tabel-lbl">ОТ.</span>${summary.ot}</div>
-        <div class="tabel-item" style="color:#27ae60; font-size:12px;"><span class="tabel-lbl">РД.</span>${summary.rd} / ${planRd}</div>
-        <div class="tabel-item" style="color:#9b59b6; font-size:12px;"><span class="tabel-lbl">УС.</span>${summary.us}</div>
-    </div>`;
-    
-    let legendHtml = `
-    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; margin-top:10px; font-size:9px; font-weight:bold; text-align:center;">
-        <div style="color:#27ae60; background:rgba(39,174,96,0.05); padding:3px; border-radius:6px;">РД - Рабочий</div>
-        <div style="color:#9b59b6; background:rgba(155,89,182,0.05); padding:3px; border-radius:6px;">УС - Усиление</div>
-        <div style="color:#f39c12; background:rgba(243,156,18,0.05); padding:3px; border-radius:6px;">БС - Личный</div>
-        <div style="color:#e67e22; background:rgba(230,126,34,0.05); padding:3px; border-radius:6px;">БЛ - Больнич.</div>
-        <div style="color:#e74c3c; background:rgba(231, 76, 60, 0.05); padding:3px; border-radius:6px;">ПР - Прогул</div>
-        <div style="color:#f1c40f; background:rgba(241,196,15,0.05); padding:3px; border-radius:6px;">ОТ - Отпуск</div>
-        <div style="color:#7f8c8d; background:rgba(127,140,141,0.05); padding:3px; border-radius:6px;">В - Выходной</div>
-    </div>`;
-    
-    // Динамический сбор, фильтрация и рендеринг нарушений (штрафов и замечаний) строго за выбранный месяц
-    let finesSource = [];
-    let remarksSource = [];
-    
-    let empMatch = (typeof window.adminEmployeesGlobal !== 'undefined' && window.adminEmployeesGlobal) ? window.adminEmployeesGlobal.find(e => String(e.iin).trim() === String(iin).trim()) : null;
-    if (empMatch) {
-        finesSource = (empMatch.ptsHistory || []).filter(p => p.type === "Штраф");
-        remarksSource = empMatch.remarks || [];
-    } else {
-        finesSource = (typeof myMoneyFinesHistory !== 'undefined') ? myMoneyFinesHistory : [];
-        let dashDataStr = localStorage.getItem("dashData_" + (window.appState?.iin || ""));
-        remarksSource = dashDataStr ? (JSON.parse(dashDataStr)?.info?.remarks || []) : [];
-    }
-    
-    let currentFines = finesSource.filter(i => i && typeof i.date === 'string' && i.date.includes(targetMonthStr));
-    currentFines.sort((a, b) => parseCustomDate(b.date) - parseCustomDate(a.date));
-    
-    let violHtml = `<div style="margin-top:16px; padding-top:14px; border-top:1px dashed var(--border-color);">`;
-    if (currentFines.length > 0) {
-        violHtml += `<div class="grid-details-title" style="color:#e74c3c; margin-top:4px; margin-bottom:8px; font-weight:bold; font-size:12px; text-transform:none; text-align:left;">Нарушения</div>` + currentFines.map(i => renderMoneyFineItem(i)).join("");
-    } else {
-        violHtml += `<div style="padding:12px; text-align:center; color:gray; font-size:12px;">. . .</div>`;
-    }
-    
-    let currentRemarks = remarksSource.filter(r => r && typeof r.date === 'string' && r.date.includes(targetMonthStr));
-    currentRemarks.sort((a, b) => parseCustomDate(b.date) - parseCustomDate(a.date));
-    
-    if (currentRemarks.length > 0) {
-        violHtml += `<div class="grid-details-title" style="color:#f39c12; margin-top:14px; margin-bottom:8px; font-weight:bold; font-size:12px; text-transform:none; text-align:left;">Замечания</div>` + currentRemarks.map(r => {
-            let authorStr = formatRemarkAuthor(r.authorName, r.authorRole);
-            return `<div class="req-item" style="border-left-color: #f39c12; margin-bottom:8px;"><div class="req-title" style="color:#f39c12; font-size:12px;">${authorStr} <span style="float:right; color:gray; font-size:10px;">${r.date}</span></div><div class="req-desc" style="color:var(--text-color); font-size:12px; white-space:pre-wrap;">${formatRemarkText(r.details)}</div></div>`;
-        }).join("");
-    }
-    violHtml += `</div>`;
-    
-    container.innerHTML = navHtml + weekHeadersHtml + gridHtml + summaryHtml + legendHtml + violHtml;
+  // Карта переработок по дням для моментальной подсветки ячеек
+  let overtimeDaysMap = {};
+  approvedOvertimes.forEach(r => {
+      let metaObj = {};
+      try { metaObj = typeof r.meta === 'string' ? JSON.parse(r.meta) : (typeof r.metadata === 'string' ? JSON.parse(r.metadata) : (r.meta || r.metadata || {})); } catch(e){}
+      let dStr = metaObj.date || r.date || "";
+      let dayNum = parseInt(dStr.split('.')[0], 10);
+      if (!isNaN(dayNum)) overtimeDaysMap[dayNum] = r;
+  });
+
+  // Заранее собираем и группируем баллы (плюсовые и минусовые) по дням выбранного месяца для бейджей
+  let ptsSourceAll = [];
+  let empMatchForPts = (typeof allEmployeesData !== 'undefined' && allEmployeesData) ? allEmployeesData.find(e => safeIin(e.iin) === safeIin(iin)) : null;
+  if (empMatchForPts) { ptsSourceAll = empMatchForPts.ptsHistory || []; } else { ptsSourceAll = (typeof myDisplayPointsHistory !== 'undefined') ? myDisplayPointsHistory : []; }
+  let dailyPoints = {};
+  ptsSourceAll.forEach(i => {
+      if (i && typeof i.date === 'string' && i.date.includes(targetMonthStr)) {
+          let dayNum = parseInt(i.date.split('.')[0], 10); if (isNaN(dayNum)) return; if (!dailyPoints[dayNum]) dailyPoints[dayNum] = { plus: 0, minus: 0 };
+          let valNum = parseFloat(String(i.val).replace('+', '').replace(',', '.').trim()) || 0;
+          if (i.type === "Начисление" || valNum > 0) dailyPoints[dayNum].plus += valNum;
+          else if (i.type === "Штраф" || i.type === "Списание" || valNum < 0) dailyPoints[dayNum].minus += Math.abs(valNum);
+      }
+  });
+
+  let attendanceMap = {};
+  try {
+      if (typeof supabaseClient !== 'undefined' && supabaseClient) {
+          let { data: dbData, error } = await supabaseClient
+              .from('emp_attendance_days')
+              .select('date, status, hours')
+              .eq('iin', iin)
+              .gte('date', startDateStr)
+              .lte('date', endDateStr);
+          if (!error && dbData) {
+              dbData.forEach(row => {
+                  let dayNum = parseInt(row.date.split('-')[2], 10);
+                  attendanceMap[dayNum] = { status: row.status, hours: row.hours };
+              });
+          }
+      }
+  } catch(e) { console.error("Ошибка загрузки дней табеля:", e); }
+
+  let navHtml = `
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; padding:0 4px;" class="no-swipe">
+      <button style="width:32px; min-width:32px; height:32px; border-radius:50%; border:none; background:none; color:var(--text-color); display:flex; align-items:center; justify-content:center; cursor:pointer; margin:0; padding:0; -webkit-tap-highlight-color:transparent;" onclick="window.adjustCalMonth('${iin}', -1, '${containerId}')">
+          <span class="material-symbols-rounded" style="font-size:22px; font-weight:bold; opacity:0.9;">chevron_left</span>
+      </button>
+      <div style="position:relative; display:inline-flex; align-items:center; cursor:pointer; margin:0; padding:0; background:none;">
+          <span class="material-symbols-rounded" style="font-size:16px; color:gray; margin-right:5px; display:inline-block; vertical-align:middle;">calendar_month</span>
+          <span style="font-size:14px; font-weight:700; color:var(--text-color); letter-spacing:-0.3px; white-space:nowrap; display:inline-block; margin:0; padding:0; vertical-align:middle;">
+              ${monthNames[month]} ${year}
+          </span>
+          <input type="month" value="${year}-${("0" + (month + 1)).slice(-2)}" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; margin:0; padding:0; -webkit-tap-highlight-color:transparent;" onchange="window.onCalMonthPickerChange(this.value, '${iin}', '${containerId}')">
+      </div>
+      <button style="width:32px; min-width:32px; height:32px; border-radius:50%; border:none; background:none; color:var(--text-color); display:flex; align-items:center; justify-content:center; cursor:pointer; margin:0; padding:0; -webkit-tap-highlight-color:transparent;" onclick="window.adjustCalMonth('${iin}', 1, '${containerId}')">
+          <span class="material-symbols-rounded" style="font-size:22px; font-weight:bold; opacity:0.9;">chevron_right</span>
+      </button>
+  </div>`;
+
+  let daysOfWeek = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+  let weekHeadersHtml = `<div style="display:grid; grid-template-columns:repeat(7, 1fr); text-align:center; font-size:11px; color:gray; font-weight:bold; margin-bottom:6px;">` + daysOfWeek.map(d => `<div>${d}</div>`).join("") + `</div>`;
+  
+  let firstDayIndex = new Date(year, month, 1).getDay();
+  let startOffset = firstDayIndex === 0 ? 6 : firstDayIndex - 1;
+  let gridHtml = `<div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:5px;">`;
+  for (let i = 0; i < startOffset; i++) { gridHtml += `<div></div>`; }
+
+  let statusColors = { 'РД': { color: '#27ae60', bg: 'rgba(39, 174, 96, 0.05)' }, 'УС': { color: '#9b59b6', bg: 'rgba(155, 89, 182, 0.05)' }, 'БС': { color: '#f39c12', bg: 'rgba(243, 156, 18, 0.05)' }, 'БЛ': { color: '#e67e22', bg: 'rgba(230, 126, 34, 0.05)' }, 'ПР': { color: '#e74c3c', bg: 'rgba(231, 76, 60, 0.05)' }, 'ОТ': { color: '#f1c40f', bg: 'rgba(241,196,15,0.06)' }, 'В': { color: '#7f8c8d', bg: 'rgba(127,140,141,0.05)' }, 'V': { color: '#7f8c8d', bg: 'rgba(127,140,141,0.05)' } };
+  let summary = { bs: 0, bl: 0, pr: 0, ot: 0, rd: 0, us: 0, v: 0 };
+
+  for (let day = 1; day <= lastDay; day++) {
+      let dayData = attendanceMap[day];
+      let statusText = dayData ? dayData.status : "";
+      if (statusText) {
+          let st = String(statusText).toUpperCase().trim();
+          if (st === 'РД') summary.rd++;
+          else if (st === 'УС') summary.us++;
+          else if (st === 'БС') summary.bs++;
+          else if (st === 'БЛ') summary.bl++;
+          else if (st === 'ПР') summary.pr++;
+          else if (st === 'ОТ') summary.ot++;
+          else if (st === 'В' || st === 'V') summary.v++;
+      }
+      
+      let displayHours = dayData ? dayData.hours : 0;
+      if (displayHours === 9 || displayHours === 12 || displayHours === 13) { displayHours = 10; }
+      let hoursText = (dayData && displayHours && displayHours > 0) ? `${displayHours}ч` : "";
+      
+      let cellStyle = "background:var(--inner-bg, rgba(150,150,150,0.03)); color:var(--text-color); border:none;";
+      if (statusText && statusColors[statusText]) {
+          cellStyle = `background:${statusColors[statusText].bg}; color:${statusColors[statusText].color}; border:none;`;
+      }
+      
+      // ИСПРАВЛЕНО: Приоритетная оранжевая обводка и подсвечивание ячейки переработки поверх базового цвета
+      if (overtimeDaysMap[day]) {
+          cellStyle = `background: rgba(243, 156, 18, 0.12) !important; color: #f39c12 !important; border: 1.5px dashed #f39c12 !important;`;
+      }
+
+      let ptsBadgeHtml = "";
+      if (dailyPoints[day]) {
+          let dp = dailyPoints[day];
+          ptsBadgeHtml = `<div style="position:absolute; top:-4px; right:-4px; display:flex; flex-direction:column; gap:1px; z-index:5; pointer-events:none;">`;
+          if (dp.plus > 0) { ptsBadgeHtml += `<span style="background:#27ae60; color:white; font-size:7.5px; font-weight:bold; padding:1px 3px; border-radius:4px; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.15);">+${String(dp.plus).replace('.', ',')}</span>`; }
+          if (dp.minus > 0) { ptsBadgeHtml += `<span style="background:#e74c3c; color:white; font-size:7.5px; font-weight:bold; padding:1px 3px; border-radius:4px; line-height:1; box-shadow:0 1px 2px rgba(0,0,0,0.15); text-shadow:none;">-${String(dp.minus).replace('.', ',')}</span>`; }
+          ptsBadgeHtml += `</div>`;
+      }
+      
+      gridHtml += `
+      <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; aspect-ratio:1; border-radius:50%; box-sizing:border-box; padding:2px; position:relative; ${cellStyle}">
+          ${ptsBadgeHtml}
+          <span style="font-size:9px; font-weight:bold; opacity:0.5; margin-bottom:1px; line-height:1;">${day}</span>
+          <b style="font-size:10px; text-transform:uppercase; letter-spacing:-0.3px; line-height:1;">${statusText || '-'}</b>
+          ${hoursText ? `<span style="font-size:7px; opacity:0.6; margin-top:1px; font-weight:bold; line-height:1;">${hoursText}</span>` : ''}
+      </div>`;
+  }
+  gridHtml += `</div>`;
+
+  let planRd = lastDay - summary.v; if (planRd < 0) planRd = 0;
+  let summaryHtml = `
+  <div style="display:flex; justify-content:space-around; align-items:center; margin:14px 0 8px 0; padding:6px 8px; background:rgba(150,150,150,0.05); border-radius:12px;" class="no-swipe">
+      <div class="tabel-item" style="color:#f39c12; font-size:12px;"><span class="tabel-lbl">БС.</span>${summary.bs}</div>
+      <div class="tabel-item" style="color:#e67e22; font-size:12px;"><span class="tabel-lbl">БЛ.</span>${summary.bl}</div>
+      <div class="tabel-item" style="color:#e74c3c; font-size:12px;"><span class="tabel-lbl">ПР.</span>${summary.pr}</div>
+      <div class="tabel-item" style="color:#f1c40f; font-size:12px;"><span class="tabel-lbl">ОТ.</span>${summary.ot}</div>
+      <div class="tabel-item" style="color:#27ae60; font-size:12px;"><span class="tabel-lbl">РД.</span>${summary.rd} / ${planRd}</div>
+      <div class="tabel-item" style="color:#9b59b6; font-size:12px;"><span class="tabel-lbl">УС.</span>${summary.us}</div>
+  </div>`;
+
+  let legendHtml = `
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; font-size:10px; margin-top:10px; border-top:1px solid rgba(150,150,150,0.08); padding-top:8px; text-align:center;" class="no-swipe">
+      <div style="color:#27ae60; background:rgba(39,174,96,0.05); padding:3px; border-radius:6px;">РД - Рабочий день</div>
+      <div style="color:#9b59b6; background:rgba(155,89,182,0.05); padding:3px; border-radius:6px;">УС - Усиление</div>
+      <div style="color:#f39c12; background:rgba(243,156,18,0.05); padding:3px; border-radius:6px;">БС - Без содерж.</div>
+      <div style="color:#e67e22; background:rgba(230,126,34,0.05); padding:3px; border-radius:6px;">БЛ - Больничный</div>
+      <div style="color:#e74c3c; background:rgba(231,76,60,0.05); padding:3px; border-radius:6px;">ПР - Прогул</div>
+      <div style="color:#f1c40f; background:rgba(241,196,15,0.05); padding:3px; border-radius:6px;">ОТ - Отпуск</div>
+      <div style="color:#7f8c8d; background:rgba(127,140,141,0.05); padding:3px; border-radius:6px;">В - Выходной</div>
+  </div>`;
+
+  // Сбор и сортировка штрафов/замечаний
+  let finesSource = []; let remarksSource = [];
+  let empMatch = (typeof window.adminEmployeesGlobal !== 'undefined' && window.adminEmployeesGlobal) ? window.adminEmployeesGlobal.find(e => String(e.iin).trim() === String(iin).trim()) : null;
+  if (empMatch) { finesSource = (empMatch.ptsHistory || []).filter(p => p.type === "Штраф"); remarksSource = empMatch.remarks || []; } 
+  else { finesSource = (typeof myMoneyFinesHistory !== 'undefined') ? myMoneyFinesHistory : []; let dashDataStr = localStorage.getItem("dashData_" + (window.appState?.iin || "")); remarksSource = dashDataStr ? (JSON.parse(dashDataStr)?.info?.remarks || []) : []; }
+  
+  let currentFines = finesSource.filter(i => i && typeof i.date === 'string' && i.date.includes(targetMonthStr)); currentFines.sort((a, b) => parseCustomDate(b.date) - parseCustomDate(a.date));
+  let currentRemarks = remarksSource.filter(i => i && typeof i.date === 'string' && i.date.includes(targetMonthStr)); currentRemarks.sort((a, b) => parseCustomDate(b.date) - parseCustomDate(a.date));
+
+  let violHtml = `<div style="margin-top:16px; padding-top:14px; border-top:1px dashed var(--border-color);">`;
+  
+  // ИСПРАВЛЕНО: 2. Вывод карточек ОДОБРЕННЫХ переработок строго НАД штрафами и замечаниями в виде записей
+  if (approvedOvertimes.length > 0) {
+      violHtml += `<div class="grid-details-title" style="color:#f39c12; margin-top:4px; margin-bottom:8px; font-weight:bold; font-size:12px; text-transform:none; text-align:left;">Переработки</div>`;
+      violHtml += approvedOvertimes.map(r => {
+          let mObj = {};
+          try { mObj = typeof r.meta === 'string' ? JSON.parse(r.meta) : (typeof r.metadata === 'string' ? JSON.parse(r.metadata) : (r.meta || r.metadata || {})); } catch(e){}
+          let dStr = mObj.date || r.date || "";
+          let timeInfo = (mObj.from_time && mObj.to_time) ? ` (${mObj.from_time} - ${mObj.to_time})` : " (полный день)";
+          return `
+          <div class="req-item" style="border-left-color: #f39c12; border-left-width: 2px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-color, transparent);">
+              <div style="flex:1; min-width:0; padding-right:10px;">
+                  <b style="font-size:12px; color:#f39c12; display:inline-block; margin-bottom:2px;">${r.type || 'Переработка'}</b><br>
+                  <span style="color:var(--text-color); font-size:12px; display:inline-block; margin-bottom:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%;">${r.details || 'Утверждено руководством'}</span><br>
+                  <span style="color:gray; font-size:10px; display:inline-flex; align-items:center; gap:2px;"><span class="material-symbols-rounded" style="font-size:11px;">schedule</span> ${dStr}${timeInfo}</span>
+              </div>
+              <div style="flex-shrink:0; display:flex; align-items:center; justify-content:center; width:28px; height:28px; background:rgba(243, 156, 18, 0.1); border-radius:50%;">
+                  <span class="material-symbols-rounded" style="color:#f39c12; font-size:16px;">more_time</span>
+              </div>
+          </div>`;
+      }).join("");
+  }
+
+  if (currentFines.length > 0) { violHtml += `<div class="grid-details-title" style="color:#e74c3c; margin-top:12px; margin-bottom:8px; font-weight:bold; font-size:12px; text-transform:none; text-align:left;">Нарушения</div>` + currentFines.map(i => renderMoneyFineItem(i)).join(""); }
+  if (currentRemarks.length > 0) { violHtml += `<div class="grid-details-title" style="color:#f39c12; margin-top:12px; margin-bottom:8px; font-weight:bold; font-size:12px; text-transform:none; text-align:left;">Замечания</div>` + currentRemarks.map(r => { let desc = formatRemarkText(r.details); let authorStr = formatRemarkAuthor(r.authorName, r.authorRole); return `<div class="req-item" style="border-left-color: #f39c12; margin-bottom:8px; padding:10px;"><div class="req-title" style="font-size:11px; margin-bottom:4px;"><b style="color:#f39c12;">${authorStr}</b> <span style="float:right; color:gray; font-size:9px;">${r.date || ''}</span></div><div class="req-desc" style="color:var(--text-color); font-size:12px; white-space:pre-wrap; line-height:1.3;">${desc}</div></div>`; }).join(""); }
+  
+  if (approvedOvertimes.length === 0 && currentFines.length === 0 && currentRemarks.length === 0) {
+      violHtml += `<p style='text-align:center; color:gray; font-size:12px; margin-top:15px; padding:10px 0;'>Записей и нарушений не найдено</p>`;
+  }
+  violHtml += `</div>`;
+
+  container.innerHTML = navHtml + weekHeadersHtml + gridHtml + summaryHtml + legendHtml + violHtml;
 }
 
 // ОБРАБОТЧИК НАВИГАЦИИ СТРЕЛКАМИ С ПЕРЕХОДОМ ГОДА
