@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <title>TapWork</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#f4f4f5">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="TapWork">
+  <link rel="apple-touch-icon" href="icon.png">
+
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,1,0" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css">
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  
+  <style>
+    /* Небольшая корректировка для центрирования новых иконок в меню */
+    .material-symbols-rounded {
+      font-size: 24px;
+      vertical-align: middle;
+    }
+  </style>
+  
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+</head>
+<body style="display: flex; flex-direction: column;">
+  <div id="toast">Уведомление</div>
+  <div id="loader-screen"><p style="color: gray; font-size: 16px; font-style: italic;">Идентификация...</p></div>
+  
+  <div id="auth-screen" class="hidden scrollable-content" style="max-width: 400px; margin: 0 auto; text-align:center; transition: opacity 0.6s ease;">
+    <h2 style="margin-top:20px;">Вход в систему</h2>
+    <p style="color:gray; font-size:14px;">Введите ваши данные</p>
+    
+    <input type="text" id="iin-input" placeholder="Введите ИИН (12 цифр)" inputmode="numeric">
+    <input type="password" id="password-input" placeholder="Введите пароль">
+    <button onclick="manualLogin()" class="btn-green" style="margin-top: 15px;">Войти</button>
+    <div id="login-error" style="color: #e74c3c; text-align:center; margin-top: 10px;"></div>
+  </div>
+
+  <div id="main-screen" class="hidden" style="display:flex; flex-direction:column; height:100%; transition: opacity 0.6s ease;">
+    <div class="fixed-header glass">
+      <div class="header-container"><h2 id="user-greeting" style="margin: 0; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;"></h2>
+        <div class="top-icons" id="main-tabs">
+          <div id="nav-time-icon" class="icon-btn active-tab hidden" onclick="switchTab('time');"><span class="material-symbols-rounded" style="color: #3498db;">schedule</span></div>
+          <div id="nav-create-icon" class="icon-btn hidden" onclick="switchTab('create');"><span class="material-symbols-rounded" style="color: #e84393;">add_circle</span></div>
+          
+          <div id="nav-adm-outs" class="icon-btn hidden" onclick="switchTab('adm-outs');"><span class="material-symbols-rounded" style="color: #3498db;">pending_actions</span></div>
+          <div id="nav-adm-main" class="icon-btn hidden" onclick="switchTab('adm-main');"><span class="material-symbols-rounded" style="color: #e84393;">dashboard</span></div>
+          
+          <div id="inbox-icon" class="icon-btn hidden" onclick="switchTab('inbox');"><span class="material-symbols-rounded" style="color: #f39c12;">notifications</span><span id="user-badge" class="badge hidden"></span></div>
+          <div id="nav-adm-inbox" class="icon-btn hidden" onclick="switchTab('adm-inbox');"><span class="material-symbols-rounded" style="color: #f39c12;">mail</span><span id="admin-badge" class="badge hidden"></span></div>
+        </div>
+      </div>
+      <div class="banner-wrapper hidden fade-in" id="info-dashboard">
+        <div class="info-wrapper">
+          <div class="scrollable-blocks" id="scroll-container">
+            <div class="info-box" onclick="openDetails('sc')"><div class="info-box-title">СЦ | Фокус</div><div class="info-box-value" id="info-sc-val">- | -</div></div>
+            <div class="info-box pts-box" onclick="openDetails('points')">
+    <div class="info-box-title">Мои баллы</div>
+    <div class="pts-grid" style="display:flex; gap:3px; margin-top:4px; width:100%; justify-content:space-between;">
+        <div class="inner-block" style="border-radius:6px; padding:4px 2px; margin-bottom:0; flex:1;">
+            <div style="font-size:8px; color:gray;">Нач.</div>
+            <div style="font-size:12px; font-weight:bold; color:var(--text-color); opacity:0.8;" id="pt-acc">-</div>
+        </div>
+        <div class="inner-block" style="border-radius:6px; padding:4px 2px; margin-bottom:0; flex:1;">
+            <div style="font-size:8px; color:gray;">Исп.</div>
+            <div style="font-size:12px; font-weight:bold; color:var(--text-color); opacity:0.8;" id="pt-use">-</div>
+        </div>
+        <div class="inner-block" style="border-radius:6px; padding:4px 2px; margin-bottom:0; flex:1; background:rgba(41, 128, 185, 0.1);">
+            <div style="font-size:8px; color:gray;">Ост.</div>
+            <div style="font-size:12px; font-weight:bold; color:#27ae60;" id="pt-rem">-</div>
+        </div>
+        <div class="inner-block" style="border-radius:6px; padding:4px 2px; margin-bottom:0; flex:1; background:rgba(231, 76, 60, 0.1);">
+            <div style="font-size:8px; color:gray;">Штрф.</div>
+            <div style="font-size:12px; font-weight:bold; color:#e74c3c;" id="pt-fin">-</div>
+        </div>
+    </div>
+</div>
+            <div class="info-box" onclick="openDetails('report')">
+    <div class="info-box-title">Мои отчеты</div>
+    <div class="info-box-value" style="display: flex; align-items: center; justify-content: center; height: 24px; margin-top: 2px;">
+        <span class="material-symbols-rounded" style="font-size: 22px; color: #3390ec;">assignment</span>
+    </div>
+</div>
+            <div class="info-box tabel-box" onclick="openDetails('tabel')"><div class="info-box-title">Табель / Штрафы</div><div class="tabel-grid" id="info-tabel"></div></div>
+          </div>
+          <div class="info-box circle-box" onclick="openDetails('kpi')"><div class="kpi-container" id="kpi-circle"><div class="kpi-inner"><span id="kpi-val" style="font-size:13px; font-weight:bold;">90%</span><span style="font-size:7px; color:gray; line-height:1; margin-top: 1px;">КФ. ЭФФ.</span></div></div></div>
+        </div>
+      </div>
+    </div> 
+    <div class="scrollable-content slide-up-fade" id="scrollable-body" style="padding-top: 5px;">
+      <div id="content-time" class="hidden" style="max-width: 400px; margin: 0 auto; text-align:center;">
+        <p id="action-hint" style="margin-bottom: 12px; font-weight:bold; padding-top: 5px; font-size:15px;">Загрузка лимитов...</p>
+        <div id="standard-buttons"><button id="btn-break" class="btn-break" onclick="triggerAction('Перерыв')" disabled><span>Перерыв</span><span class="desc" id="desc-break">10 мин</span></button><button id="btn-lunch" class="btn-lunch" onclick="triggerAction('Обед')" disabled><span>Обед</span><span class="desc" id="desc-lunch">40 мин</span></button><button id="btn-snack" class="btn-snack" onclick="triggerAction('Полдник')" disabled><span>Полдник</span><span class="desc" id="desc-snack">30 мин</span></button></div>
+        <div id="return-button-container" class="hidden"><button id="btn-return" class="btn-return" onclick="triggerReturn()"><span id="return-text">Вернуться</span></button></div>
+        <div id="active-outs-container" class="active-outs-box hidden inner-block" style="background:var(--card-bg);"><div class="active-outs-title">В отсутствии:</div><div id="active-outs-list"></div></div>
+      </div>
+      <div id="content-create" class="hidden">
+        <div id="menu-list">
+          <button onclick="openForm('sc')">Продажа СЦ / Дефект</button><button onclick="openForm('tradein')">Продажа Trade-In</button><button onclick="openForm('points')">Баллы мотивации</button><button onclick="openForm('swap')" class="btn-orange">Рабочая смена</button>
+          <div id="hot-check-card" class="card hidden" style="margin-top: 15px;"></div>
+          <div id="cashier-metrics-card" class="card hidden" style="margin-top: 15px; padding: 12px; text-align: left;">
+              <h3 style="margin: 0 0 12px 0; font-size: 15px; color: var(--text-color); display: flex; align-items: center; gap: 6px;">
+                  <span class="material-symbols-rounded" style="color: #9b59b6; font-size: 20px;">point_of_sale</span>
+                  Кассовые показатели
+              </h3>
+              <div id="cashier-metrics-dynamic-area"></div>
+          </div>
+        </div>
+        <div id="form-sc" class="card form-dark hidden" style="padding: 0; background: transparent; border: none; box-shadow: none;">
+           <div class="sticky-header glass" style="margin-top:0; padding-bottom: 10px;">
+             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+                <div style="display:flex; align-items:center;"><h3 style="margin:0; font-size: 15px;">Продажа СЦ/Дефект</h3><div id="btn-act-doc" onclick="openScDoc()" style="font-size:18px; padding:6px; margin-left:8px; line-height:1; background:rgba(150,150,150,0.1); border-radius:8px; opacity:0; pointer-events:none; transition:0.6s; cursor:pointer;"><span class="material-symbols-rounded">description</span></div></div>
+                <input type="text" id="sc-date" class="smart-date" data-realdate="" style="height:30px; width:115px; margin:0; transition: all 0.3s ease; font-size:13px; background:var(--card-bg); border:1px solid var(--btn-color); color:var(--btn-color) !important; border-radius:8px;">
+             </div>
+             <div style="display:flex; gap:6px;" id="sc-dept-tabs">
+                <button id="sc-tab-cifra" class="admin-flt active-flt" onclick="switchScDept('Цифра')">Цифра</button>
+                <button id="sc-tab-mbt" class="admin-flt" onclick="switchScDept('МБТ')">МБТ</button>
+                <button id="sc-tab-kbt" class="admin-flt" onclick="switchScDept('КБТ')">КБТ</button>
+             </div>
+           </div>
+           <div class="card" style="margin-top: 5px;">
+              <input type="text" id="sc-search" placeholder="Поиск товара..." oninput="renderScItems()">
+              <div class="sc-list-container" id="sc-list"></div>
+              <div class="grid-btns"><button class="btn-gray" onclick="closeForm()">Отмена</button><button onclick="submitScForm()">Отправить</button></div>
+           </div>
+        </div>
+        <div id="form-tradein" class="card form-dark hidden"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;"><h3 style="margin:0; font-size:15px;">Продажа Trade-In</h3><input type="text" id="ft-date" class="smart-date" data-realdate="" style="height:30px; width:115px; margin:0; transition: all 0.3s ease; font-size:13px; background:var(--card-bg); border:1px solid var(--btn-color); color:var(--btn-color) !important; border-radius:8px;"></div><div style="font-size:13px; margin-bottom:8px; color:gray;">Выберите модель из списка:</div><div class="sc-list-container" id="tradein-list" style="max-height:300px;"></div><div class="grid-btns" style="margin-top: 15px;"><button class="btn-gray" onclick="closeForm()">Отмена</button><button onclick="submitTradeIn()">Отправить</button></div></div>
+        <div id="form-points" class="card form-dark hidden"><h3 style="font-size:15px;">Баллы мотивации</h3><div id="fp-balance-notice"></div><select id="fp-action"><option value="Придти позже">Придти позже</option><option value="Уйти раньше">Уйти раньше</option></select><select id="fp-time"><option value="30 мин">30 мин</option><option value="1 час">1 час</option><option value="2 часа">2 часа</option><option value="3 часа">3 часа</option></select><p id="fp-date-label" style="margin: 12px 0 6px; font-size: 13px; color:gray;">Укажите дату:</p><input type="text" id="fp-date" class="smart-date" data-realdate=""><div class="grid-btns" style="margin-top: 15px;"><button class="btn-gray" onclick="closeForm()">Отмена</button><button id="fp-submit-btn" onclick="submitPoints()">Отправить</button></div></div>
+        <div id="form-swap" class="card form-dark hidden" style="padding: 0; background: transparent; border: none; box-shadow: none; width: 100%; box-sizing: border-box;">
+          
+          <div class="card" style="margin-bottom:12px; padding:12px; border:1px dashed var(--btn-color); background:var(--card-bg); box-shadow:none; width:100%; box-sizing:border-box; text-align:left;">
+            <h3 style="margin:0 0 10px 0; font-size:14px; display:flex; align-items:center; gap:6px; color:var(--text-color);">
+              <span class="material-symbols-rounded" style="color:#27ae60; font-size:18px;">edit_calendar</span>
+              Исправить смену за сегодня
+            </h3>
+            <select id="fs-fix-shift" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-color); color:var(--text-color); border:1px solid var(--border-color); font-size:13px; box-sizing:border-box;">
+                <option value="" disabled selected>Выберите правильную смену</option>
+                <option value="09:00 - 19:00">09:00 - 19:00</option>
+                <option value="12:00 - 22:00">12:00 - 22:00</option>
+            </select>
+            <button class="btn-green" onclick="submitFixShift()" style="margin-top:10px; font-size:13px; padding:10px; width:100%; box-sizing:border-box; font-weight:bold;">Отправить исправление</button>
+          </div>
+          
+          <div class="card" style="margin-bottom:12px; padding:12px; border:1px solid var(--border-color); background:var(--card-bg); box-shadow:none; width:100%; box-sizing:border-box; text-align:left;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; gap:8px; width:100%;">
+               <div style="display:flex; align-items:center; gap:6px; min-width:0;">
+                  <span class="material-symbols-rounded" style="color:#f39c12; font-size:18px; flex-shrink:0;">swap_horiz</span>
+                  <h3 style="margin:0; font-size:14px; color:var(--text-color); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Обмен сменами</h3>
+               </div>
+               <div style="width:100px; flex-shrink:0;">
+                  <input type="text" id="fs-date" class="smart-date" data-realdate="" style="height:28px; line-height:26px; padding:0; margin:0; font-size:12px; text-align:center; background:var(--inner-bg); border:1px solid var(--border-color); border-radius:6px; color:var(--text-color); width:100%; box-sizing:border-box; -webkit-appearance:none; appearance:none;">
+               </div>
+            </div>
+            <select id="fs-target" onchange="checkSwapFields()" style="width:100%; padding:10px; border-radius:8px; background:var(--bg-color); color:var(--text-color); border:1px solid var(--border-color); font-size:13px; box-sizing:border-box;"></select>
+            
+            <div id="fs-extra" class="hidden" style="margin-top:10px; width:100%;">
+              <p style="margin:0 0 6px 0; font-size:12px; font-weight:bold; color:gray;">Укажите новую смену:</p>
+              <select id="fs-shift" style="margin-bottom:10px; width:100%; padding:10px; border-radius:8px; background:var(--bg-color); color:var(--text-color); border:1px solid var(--border-color); font-size:13px; box-sizing:border-box;">
+                  <option value="09:00 - 19:00">09:00 - 19:00</option>
+                  <option value="12:00 - 22:00">12:00 - 22:00</option>
+              </select>
+              <button class="btn-orange" onclick="submitSwap()" style="width:100%; font-size:13px; padding:10px; margin:0; box-sizing:border-box; font-weight:bold;">Запросить обмен</button>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:12px; padding:12px; border:1px solid var(--border-color); background:var(--card-bg); box-shadow:none; width:100%; box-sizing:border-box; text-align:left;">
+            <h3 style="margin:0 0 10px 0; font-size:14px; display:flex; align-items:center; gap:6px; color:var(--text-color);">
+              <span class="material-symbols-rounded" style="color:#27ae60; font-size:18px;">flight_takeoff</span>
+              Заявка в отпуск
+            </h3>
+            <div style="display:flex; gap:8px; margin-bottom:12px; width:100%; box-sizing:border-box;">
+              <div style="flex:1; min-width:0;">
+                 <div style="font-size:11px; color:gray; margin-bottom:4px;">Начало:</div>
+                 <input type="date" id="vac-start" style="width:100%; height:36px; line-height:34px; padding:0; box-sizing:border-box; border-radius:8px; border:1px solid var(--border-color); background:var(--inner-bg); color:var(--text-color); font-family:inherit; text-align:center; -webkit-appearance:none; appearance:none;">
+              </div>
+              <div style="flex:1; min-width:0;">
+                 <div style="font-size:11px; color:gray; margin-bottom:4px;">Конец:</div>
+                 <input type="date" id="vac-end" style="width:100%; height:36px; line-height:34px; padding:0; box-sizing:border-box; border-radius:8px; border:1px solid var(--border-color); background:var(--inner-bg); color:var(--text-color); font-family:inherit; text-align:center; -webkit-appearance:none; appearance:none;">
+              </div>
+            </div>
+            <button class="btn-green" onclick="submitVacation()" style="margin-bottom:15px; width:100%; font-size:13px; padding:10px; box-sizing:border-box; font-weight:bold;">Отправить заявку</button>
+            
+            <div style="font-size:14px; font-weight:bold; margin-bottom:8px; color:var(--text-color); border-bottom:1px solid rgba(150,150,150,0.1); padding-bottom:6px; display:flex; align-items:center; gap:6px;"><span class="material-symbols-rounded" style="color:#f39c12; font-size:18px;">flight_takeoff</span> График отпусков:</div>
+            <div id="vacation-list-container" style="max-height:150px; overflow-y:auto; padding:4px; width:100%; box-sizing:border-box;"></div>
+          </div>
+
+          <div id="cashier-overtime-block" class="card hidden" style="margin-bottom:12px; padding:12px; border:1px solid var(--border-color); background:var(--card-bg); box-shadow:none; width:100%; box-sizing:border-box; text-align:left;">
+            <h3 style="margin:0 0 10px 0; font-size:14px; display:flex; align-items:center; gap:6px; color:var(--text-color);">
+              <span class="material-symbols-rounded" style="color:#f39c12; font-size:18px;">more_time</span>
+              Подать на переработку
+            </h3>
+
+            <div style="display:flex; background:var(--bg-color); padding:2px; border-radius:8px; margin-bottom:10px; border:1px solid var(--border-color); box-sizing:border-box; width:100%;">
+                <button id="tab-co-hours" type="button" style="flex:1; border:none; padding:6px; font-size:11px; font-weight:bold; border-radius:6px; cursor:pointer; background:var(--card-bg); color:var(--text-color); box-shadow:0 1px 3px rgba(0,0,0,0.1); -webkit-tap-highlight-color:transparent;" onclick="window.switchCashierOvertimeTab('hours')">По часам</button>
+                <button id="tab-co-days" type="button" style="flex:1; border:none; padding:6px; font-size:11px; font-weight:bold; border-radius:6px; cursor:pointer; background:none; color:gray; -webkit-tap-highlight-color:transparent;" onclick="window.switchCashierOvertimeTab('days')">По дням</button>
+            </div>
+
+            <input type="hidden" id="co-current-type" value="hours">
+
+            <div id="block-co-hours" style="width:100%; box-sizing:border-box; display:block;">
+                <label style="font-size:11px; color:gray; margin-bottom:4px; display:block;">Дата переработки</label>
+                <input type="date" id="co-hours-date" style="width:100% !important; max-width:100% !important; min-width:0 !important; height:34px; padding:0; margin:0 0 10px 0; border-radius:8px; background:var(--inner-bg); color:var(--text-color); border:1px solid var(--border-color); font-size:11px; box-sizing:border-box; display:block; text-align:center; text-align-last:center; -webkit-appearance:none; appearance:none;">
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; width:100%; box-sizing:border-box;">
+                    <div style="min-width:0; width:100%;">
+                        <label style="font-size:11px; color:gray; margin-bottom:4px; display:block;">Время с</label>
+                        <input type="time" id="co-hours-from" style="width:100%; height:34px; padding:0 2px; border-radius:8px; background:var(--inner-bg); color:var(--text-color); border:1.5px solid #f39c12; font-size:11px; font-weight:bold; box-sizing:border-box; display:block; text-align:center; text-align-last:center; -webkit-appearance:none; appearance:none;">
+                    </div>
+                    <div style="min-width:0; width:100%;">
+                        <label style="font-size:11px; color:gray; margin-bottom:4px; display:block;">Время до</label>
+                        <input type="time" id="co-hours-to" style="width:100%; height:34px; padding:0 2px; border-radius:8px; background:var(--inner-bg); color:var(--text-color); border:1.5px solid #f39c12; font-size:11px; font-weight:bold; box-sizing:border-box; display:block; text-align:center; text-align-last:center; -webkit-appearance:none; appearance:none;">
+                    </div>
+                </div>
+            </div>
+
+            <div id="block-co-days" style="width:100%; box-sizing:border-box; display:none;">
+                <label style="font-size:11px; color:gray; margin-bottom:4px; display:block;">День переработки</label>
+                <input type="date" id="co-days-date" style="width:100% !important; max-width:100% !important; min-width:0 !important; height:34px; padding:0; margin:0 0 10px 0; border-radius:8px; background:var(--inner-bg); color:var(--text-color); border:1px solid var(--border-color); font-size:11px; box-sizing:border-box; display:block; text-align:center; text-align-last:center; -webkit-appearance:none; appearance:none;">
+            </div>
+
+            <label style="font-size:11px; color:gray; margin-bottom:4px; display:block;">Причина переработки</label>
+            <textarea id="co-comment" placeholder="Опишите причину..." style="width:100%; height:54px; padding:8px; border-radius:8px; background:var(--inner-bg); color:var(--text-color); border:1px solid var(--border-color); font-size:12px; margin-bottom:12px; resize:none; font-family:inherit; box-sizing:border-box; display:block; max-width:100%;"></textarea>
+            
+            <button class="btn-primary" type="button" onclick="window.submitCashierOvertimeForm();" style="width:100%; margin:0; padding:10px; font-size:13px; height:38px; background:#f39c12; border-color:#f39c12; box-sizing:border-box; font-weight:bold;">Отправить заявку</button>
+          </div>
+
+          <div class="grid-btns" style="width:100%; box-sizing:border-box; margin-top:4px;">
+            <button class="btn-gray" type="button" onclick="closeForm()" style="grid-column: 1 / -1; width:100%; margin:0;">Закрыть окно</button>
+          </div>
+        </div>
+  
+      </div>
+      <div id="content-inbox" class="hidden">
+        <div class="sticky-header glass" style="margin-top:0; margin-bottom: 12px;"><h3 style="margin:0; color:var(--btn-color); text-align:center; font-size: 15px;">Входящие</h3></div>
+        <div id="inbox-list" class="req-list" style="margin-bottom: 20px;"></div>
+        <div class="sticky-header glass" style="margin-top:0; margin-bottom: 12px; padding-bottom: 6px;"><h3 style="margin:0 0 10px 0; color:var(--btn-color); text-align:center; font-size: 15px;">История</h3></div>
+        <div id="user-history-list" class="req-list"></div>
+      </div>
+      <div id="content-adm-outs" class="hidden">
+        <div class="sticky-header glass" style="margin-top:0; margin-bottom: 12px;"><h3 style="margin:0; color:var(--btn-color); text-align:center; font-size: 15px;">Список отсутствующих</h3></div>
+        <div id="admin-outs-list" class="active-outs-box inner-block" style="background:var(--card-bg);"></div>
+      </div>
+      <div id="content-adm-main" class="hidden">
+        <div class="sticky-header glass" style="display:flex; gap:6px; margin-top:0; margin-bottom:12px; flex-wrap: wrap; justify-content:center;">
+          <button id="btn-adm-plan" onclick="toggleAdminMain('plan')" class="admin-flt active-flt" style="min-width: 30%;">План</button>
+          <button id="btn-adm-emp" onclick="toggleAdminMain('emps')" class="admin-flt" style="min-width: 30%;">Сотрудники</button>
+          <button id="btn-adm-sc" onclick="toggleAdminMain('sc')" class="admin-flt" style="min-width: 30%;">СЦ Товары</button>
+        </div>
+        <div id="admin-plan-list" class="hidden" style="font-size:13px; line-height: 1.4;"></div>
+        <div id="admin-sc-list" class="hidden">
+          <div class="sticky-header glass" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px; margin-top:0; padding-bottom: 12px; top: 55px; z-index: 15;">
+            <div style="display:flex; gap:6px;">
+               <button id="flt-cifra" class="admin-flt active-flt" onclick="renderAdminScItems('Цифра', this)">Цифра</button>
+               <button id="flt-mbt" class="admin-flt" onclick="renderAdminScItems('МБТ', this)">МБТ</button>
+               <button id="flt-kbt" class="admin-flt" onclick="renderAdminScItems('КБТ', this)">КБТ</button>
+               <button id="flt-focus" class="admin-flt focus-flt" onclick="renderAdminScItems('Фокус', this)">Фокус</button>
+            </div>
+            <div style="display: flex; gap: 8px; padding: 0 4px;">
+               <button id="tab-sc-active" class="admin-flt active-flt" style="flex:1; font-size:11px; padding:6px;" onclick="switchScAdminTab('active')">В продаже</button>
+               <button id="tab-sc-sold" class="admin-flt" style="flex:1; font-size:11px; padding:6px;" onclick="switchScAdminTab('sold')">Проданные</button>
+            </div>
+            <input type="text" id="admin-sc-search" placeholder="Поиск товара..." style="height:40px; font-size:14px; margin:0; color:var(--text-color);" oninput="renderAdminScItems(currentAdminScDept, null)">
+          </div>
+          <div id="admin-sc-container" style="padding:0; background: transparent; border: none; box-shadow: none;"></div>
+        </div>
+        <div id="admin-emp-container" class="hidden">
+          <div class="sticky-header glass" style="display:flex; gap:6px; margin-bottom:12px; margin-top:0; padding:6px; top: 55px; z-index: 15;"><button id="flt-emp-cifra" class="admin-flt active-flt" onclick="renderAdminEmps('Цифра', this)">Цифра</button><button id="flt-emp-mbt" class="admin-flt" onclick="renderAdminEmps('МБТ', this)">МБТ</button><button id="flt-emp-kbt" class="admin-flt" onclick="renderAdminEmps('КБТ', this)">КБТ</button></div>
+          <div id="admin-emp-list" class="req-list"></div>
+        </div>
+      </div>
+      <div id="content-adm-inbox" class="hidden">
+        <div class="sticky-header glass" style="margin-top:0; margin-bottom: 12px;">
+          <h3 style="margin:0; color:var(--btn-color); text-align:center; font-size: 15px;">Запросы / Уведомления</h3>
+        </div>
+        <div id="admin-list" class="req-list" style="margin-bottom: 20px;"></div>
+        
+        <div class="sticky-header glass" style="margin-top:0; margin-bottom: 12px; padding-bottom: 6px;">
+          <h3 style="margin:0 0 10px 0; color:var(--btn-color); text-align:center; font-size: 15px;">История</h3>
+          <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">
+            <button id="flt-hist-all" onclick="renderAdminHistory('all')" class="admin-flt active-flt" style="min-width: 22%;">Все</button>
+            <button id="flt-hist-sales" onclick="renderAdminHistory('sales')" class="admin-flt" style="min-width: 22%;">Продажи</button>
+            <button id="flt-hist-pts" onclick="renderAdminHistory('pts')" class="admin-flt" style="min-width: 22%;">Баллы</button>
+            <button id="flt-hist-viol" onclick="renderAdminHistory('viol')" class="admin-flt" style="min-width: 22%;">Нарушения</button>
+          </div>
+        </div>
+        <div id="admin-history-list" class="req-list"></div>
+      </div>
+
+      <div id="content-details" class="hidden">
+        <div class="sticky-header glass" style="display:flex; align-items:center; margin-top:0; margin-bottom: 12px;">
+          <button id="btn-details-back" class="icon-btn" style="background:transparent; border:none; color:var(--btn-color); font-size:24px; padding:0 10px 0 0; margin:0; box-shadow:none; width: auto;">←</button>
+          <h3 id="details-title" style="margin:0; flex:1; text-align:center; font-size: 16px; color:var(--btn-color);">Детали</h3>
+          <div style="width:34px;"></div> </div>
+        <div id="details-kpi-circle-container" style="display:flex; justify-content:center; margin-bottom:15px;"></div>
+        <div id="details-list" class="req-list"></div>
+      </div>
+    </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
