@@ -1190,9 +1190,13 @@ function renderDashboardData(data, isSilent = false) {
       if (!admPlus && mainTabs) {
           admPlus = document.createElement("div");
           admPlus.id = "nav-adm-plus-btn";
-          admPlus.style = "font-size:28px; font-weight:300; color:var(--text-color); opacity:0.4; cursor:pointer; margin-right:1px; display:flex; align-items:center; justify-content:center; width:32px; height:32px; -webkit-tap-highlight-color:transparent; flex-shrink:0;";
+          
+          // ИСПРАВЛЕНО: Добавлен margin-left: auto; чтобы поглотить пустоту слева и прижать ПЛЮС вплотную к |x|x|x|
+          admPlus.style = "font-size:28px; font-weight:300; color:var(--text-color); opacity:0.4; cursor:pointer; margin-left: auto; margin-right: 6px; display:flex; align-items:center; justify-content:center; width:32px; height:32px; -webkit-tap-highlight-color:transparent; flex-shrink:0;";
           admPlus.innerHTML = `<span class="material-symbols-rounded" style="font-size:28px;">add</span>`;
           admPlus.onclick = (e) => { e.stopPropagation(); window.toggleAdminPlusMenu(); };
+          
+          // Оставляем ваше точное исходное расположение СНАРУЖИ (перед блоком вкладок)
           mainTabs.parentNode.insertBefore(admPlus, mainTabs);
       }
       if (admPlus) admPlus.style.display = "flex";
