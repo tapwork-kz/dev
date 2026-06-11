@@ -1178,22 +1178,19 @@ function renderDashboardData(data, isSilent = false) {
 
   if (isSeniorCashier) isCashier = false; 
 
-  // ИСПРАВЛЕНО: Кнопка плюс теперь открыта и для Заведующих, Инфо, Старших кассиров и Грузчиков
+  // ИСПРАВЛЕНО: Кнопка Плюс теперь создается и показывается АБСОЛЮТНО ДЛЯ ВСЕХ (включая Продавцов и Кассиров)
   let mainTabs = document.getElementById("main-tabs");
   let admPlus = document.getElementById("nav-adm-plus-btn");
-  let isOnlyDirOrSup = roleStr.includes("директор") || roleStr.includes("управляющий") || roleStr.includes("супервайзер");
-  let isAllowedPlusMenu = isOnlyDirOrSup || isZavSklad || isInfoConsultant || isSeniorCashier || isGruzchik;
   
-  if (isAllowedPlusMenu) {
-      if (!admPlus && mainTabs) {
-          admPlus = document.createElement("div");
-          admPlus.id = "nav-adm-plus-btn";
-          admPlus.style = "font-size:28px; font-weight:300; color:var(--text-color); opacity:0.4; cursor:pointer; margin-right:1px; display:flex; align-items:center; justify-content:center; width:32px; height:32px; -webkit-tap-highlight-color:transparent; flex-shrink:0;";
-          admPlus.innerHTML = `<span class="material-symbols-rounded" style="font-size:28px;">add</span>`;
-          admPlus.onclick = (e) => { e.stopPropagation(); window.toggleAdminPlusMenu(); };
-          mainTabs.parentNode.insertBefore(admPlus, mainTabs);
-      }
-      if (admPlus) admPlus.style.display = "flex";
+  if (!admPlus && mainTabs) {
+      admPlus = document.createElement("div");
+      admPlus.id = "nav-adm-plus-btn";
+      admPlus.style = "font-size:28px; font-weight:300; color:var(--text-color); opacity:0.4; cursor:pointer; margin-right:1px; display:flex; align-items:center; justify-content:center; width:32px; height:32px; -webkit-tap-highlight-color:transparent; flex-shrink:0;";
+      admPlus.innerHTML = `<span class="material-symbols-rounded" style="font-size:28px;">add</span>`;
+      admPlus.onclick = (e) => { e.stopPropagation(); window.toggleAdminPlusMenu(); };
+      mainTabs.parentNode.insertBefore(admPlus, mainTabs);
+  }
+  if (admPlus) admPlus.style.display = "flex";
   } else {
       if (admPlus) admPlus.style.display = "none";
   } 
@@ -2576,7 +2573,7 @@ window.onMyRepMonthPickerChange = function(value) {
     renderMyPersonalReportsData();
 };
 
-// ИСПРАВЛЕНО: Возвращена логика выпадающего списка административного плюса и стили вознаграждений
+// ИСПРАВЛЕНО: Кнопка прайса выведена из всех вложенных условий наружу и доступна Продавцам
 window.toggleAdminPlusMenu = function() {
     let menu = document.getElementById("admin-plus-dropdown-menu");
     if (menu) {
@@ -2594,21 +2591,21 @@ window.toggleAdminPlusMenu = function() {
         document.head.appendChild(style);
     }
     
-    let roleLow = String(appState.role || "").toLowerCase();
-    let isOnlyDirOrSup = roleLow.includes("директор") || roleLow.includes("управляющий") || roleLow.includes("супервайзер");
+    let roleStr = String(appState.role || "").toLowerCase();
+    let isDir = roleStr.includes("директор") || roleStr.includes("управляющий") || roleStr.includes("админ") || roleStr.includes("супервайзер");
+    let isZavSklad = roleStr.includes("заведующий складом");
+    let isInfoConsultant = roleStr.includes("инфо-консультант");
+    let isSeniorCashier = roleStr.includes("старший кассир");
+    let isGruzchik = roleStr.includes("грузчик");
     
     menu = document.createElement("div");
     menu.id = "admin-plus-dropdown-menu";
-    // Внешняя карточка имеет скругление 12px
-    menu.style = "position:fixed; top:60px; left:16px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:4px; z-index:9999; display:flex; flex-direction:column; min-width:190px; animation:slide-up-fade 0.2s ease;";
-    
-    menu = document.createElement("div");
-    menu.id = "admin-plus-dropdown-menu";
-    // Внешняя карточка имеет скругление 12px
     menu.style = "position:fixed; top:60px; left:16px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px; box-shadow:0 4px 16px rgba(0,0,0,0.15); padding:4px; z-index:9999; display:flex; flex-direction:column; min-width:190px; animation:slide-up-fade 0.2s ease;";
     
     let menuHtml = "";
-    if (isOnlyDirOrSup) {
+    
+    if (isDir) {
+        // 1. Ветка Администрации
         menuHtml = `
             <div style="padding:10px 12px; font-size:13px; font-weight:bold; color:var(--text-color); cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:0px; -webkit-tap-highlight-color:transparent;" onclick="window.openAdminPointsForm();">
                 <span class="material-symbols-rounded" style="color:#2ecc71; font-size:18px;">stars</span>
@@ -2638,19 +2635,24 @@ window.toggleAdminPlusMenu = function() {
                 <span class="material-symbols-rounded" style="color:#e74c3c; font-size:18px;">gavel</span>
                 <span>Штрафы</span>
             </div>`;
-    } else {
+    } else if (isZavSklad || isInfoConsultant || isSeniorCashier || isGruzchik) {
+        // 2. Ветка Смежных служб (без доступа к админ-панели, но с переработками)
         menuHtml = `
             <div style="padding:10px 12px; font-size:13px; font-weight:bold; color:var(--text-color); cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:0px; -webkit-tap-highlight-color:transparent;" onclick="window.openAdminOvertimeForm();">
                 <span class="material-symbols-rounded" style="color:#f39c12; font-size:18px;">more_time</span>
                 <span>Подать на переработку</span>
             </div>`;
-            // Дописать в конец сборки строк переменной menuHtml внутри window.toggleAdminPlusMenu:
+    }
+
+    // Если меню не пустое (это админ или склад), добавим разделительную черту. Если это Продавец — черты сверху не будет.
+    let topBorderStyle = (menuHtml !== "") ? "border-top:1px solid var(--border-color);" : "";
+
+    // 3. ОБЩАЯ КНОПКА ДЛЯ ВСЕХ РОЛЕЙ (Включая Продавцов и Кассиров)
     menuHtml += `
-    <div style="padding:10px 12px; font-size:13px; font-weight:bold; color:var(--text-color); cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:0px; -webkit-tap-highlight-color:transparent; border-top:1px solid var(--border-color);" onclick="window.openDeliveryPricesModal();">
+    <div style="padding:10px 12px; font-size:13px; font-weight:bold; color:var(--text-color); cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:0px; -webkit-tap-highlight-color:transparent; ${topBorderStyle}" onclick="window.openDeliveryPricesModal();">
         <span class="material-symbols-rounded" style="color:#3498db; font-size:18px;">local_shipping</span>
         <span>Прайс по доставкам</span>
     </div>`;
-    }
     
     menu.innerHTML = menuHtml;
     document.body.appendChild(menu);
