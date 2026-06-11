@@ -1197,6 +1197,14 @@ function renderDashboardData(data, isSilent = false) {
   let isAllowedPlusMenu = true; 
 
   if (isAllowedPlusMenu) {
+      // ИСПРАВЛЕНО: Запрещаем блоку ФИО сжиматься или переноситься из-за давления margin-left: auto
+      let userGreetingEl = document.getElementById("user-greeting");
+      if (userGreetingEl) {
+          userGreetingEl.style.whiteSpace = "nowrap";
+          userGreetingEl.style.flexShrink = "0";
+          userGreetingEl.style.margin = "0";
+      }
+
       if (!admPlus && mainTabs) {
           admPlus = document.createElement("div");
           admPlus.id = "nav-adm-plus-btn";
@@ -2398,11 +2406,11 @@ async function renderTabelCalendarData(iin, containerId = "tabel-calendar-contai
 
           return `
           <div class="req-item" style="border-left-color: #27ae60; border-left-width: 2px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-color, transparent);">
-              <div style="flex:1; min-width:0; padding-right:10px; display:flex; flex-direction:column; gap:5px;">
+              <div style="flex:1; min-width:0; padding-right:10px; display:flex; flex-direction:column; gap:4px;">
                   <span style="color: gray; font-size: 13px; display: inline-block; line-height: 1.3; font-weight: normal; word-break: break-word;">${cleanReasonText}</span>
                   
-                  <span style="color: var(--text-color); font-size: 12px; display: inline-flex; align-items: center; gap: 4px; font-weight: bold;">
-                      <span class="material-symbols-rounded" style="font-size: 14px; color: var(--text-color);">schedule</span> ${cleanDate}${timeInfo}
+                  <span style="color: var(--text-color); font-size: 11px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
+                      <span class="material-symbols-rounded" style="font-size: 13px; color: var(--text-color);">schedule</span> ${cleanDate}${timeInfo}
                   </span>
               </div>
               <div style="flex-shrink:0; display:flex; align-items:center; justify-content:center; width:28px; height:28px; background:rgba(39, 174, 96, 0.1); border-radius:50%;">
