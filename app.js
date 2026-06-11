@@ -919,22 +919,8 @@ async function manualLogin() {
   elIin.disabled = true; elPass.disabled = true; showToast("Авторизация...", false, 9999); 
   let res = await callBackend('loginByIIN', { iin: iinVal, password: passVal });
   if (res.success) { 
-      // ИСПРАВЛЕНО: Теперь роль и отдел не теряются при авторизации
-      appState.iin = res.iin; 
-      appState.token = res.token; 
-      appState.firstName = res.firstName; 
-      appState.role = res.role; 
-      appState.dept = res.dept; 
-      appState.currentAction = null; 
-      isUserPromoter = res.isPromoter; 
-      
-      saveMemory("userIIN", appState.iin); 
-      saveMemory("userToken", appState.token); 
-      saveMemory("userName", appState.firstName); 
-      saveMemory("userRole", appState.role); 
-      saveMemory("userDept", appState.dept); 
-      saveMemory("currentAction", ""); 
-      
+      appState.iin = res.iin; appState.token = res.token; appState.firstName = res.firstName; appState.currentAction = null; isUserPromoter = res.isPromoter; 
+      saveMemory("userIIN", appState.iin); saveMemory("userToken", appState.token); saveMemory("userName", appState.firstName); saveMemory("currentAction", ""); 
       document.getElementById("toast").classList.remove("show"); document.getElementById("auth-screen").style.opacity = '0'; 
       setTimeout(() => { 
           document.getElementById("auth-screen").classList.add("hidden"); document.getElementById("main-screen").classList.remove("hidden"); document.getElementById("main-screen").style.opacity = '1'; 
@@ -1150,32 +1136,30 @@ async function loadDashboard(isSilent = false) {
   let data = await callBackend('getDashboardData', { token: appState.token }); 
   if (!data || data.error === "Оффлайн режим") { if (!isSilent) hideLoader(); return; } if (data.authorized === false) { forceLogout(); return; } 
   let activeEl = document.activeElement; let isTyping = activeEl && (activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'INPUT' || activeEl.tagName === 'SELECT'); let hasUnsavedText = false; document.querySelectorAll("textarea[id^='remark-reply-']").forEach(ta => { if (ta.value.length > 0) hasUnsavedText = true; });
-      localStorage.setItem("dashData_" + appState.iin, JSON.stringify(data)); 
-      if (!isTyping && !hasUnsavedText) { renderDashboardData(data, isSilent); } if (!isSilent) hideLoader(); 
-      
-      let roleStr = String(appState.role).toLowerCase(); 
-      let isDir = roleStr.includes("директор") || roleStr.includes("управляющий") || roleStr.includes("админ") || roleStr.includes("супервайзер"); 
-      let isZavSklad = roleStr.includes("заведующий складом");
-      let isInfoConsultant = roleStr.includes("инфо-консультант");
-      let isSeniorCashier = roleStr.includes("старший кассир");
-      let isGruzchik = roleStr.includes("грузчик");
-      
-      // ИСПРАВЛЕНО: Переключаем экран на правильный ролевой хаб, если вкладки перепутались
-      if (!isSilent && !window.location.hash.includes('inbox')) {
-          let savedTab = localStorage.getItem("savedTab_" + appState.iin);
-          if (savedTab) {
-              switchTab(savedTab);
-          } else {
-              if (isDir || isZavSklad || isInfoConsultant || isSeniorCashier || isGruzchik) {
-                  switchTab('adm-main');
-                  toggleAdminMain('plan');
-              } else {
-                  switchTab('time');
-              }
-          }
-      }
-      
-      let state = await callBackend('startupCheck', { token: appState.token, iin: appState.iin, tgUserId: null }); 
+  localStorage.setItem("dashData_" + appState.iin, JSON.stringify(data)); 
+  if (!isTyping && !hasUnsavedText) { renderDashboardData(data, isSilent); } if (!isSilent) hideLoader(); 
+  
+  let roleStr = String(appState.role).toLowerCase(); 
+  let isDir = roleStr.includes("директор") || roleStr.includes("управляющий") || roleStr.includes("админ") || roleStr.includes("супервайзер"); 
+  let isZavSklad = roleStr.includes("заведующий складом");
+  let isInfoConsultant = roleStr.includes("инфо-консультант");
+  let isSeniorCashier = roleStr.includes("старший кассир");
+  let isGruzchik = roleStr.includes("грузчик");
+  
+  let state = await callBackend('startupCheck', { token: appState.token, iin: appState.iin, tgUserId: null }); 
+  if(state && state.authorized !== false) { 
+      globalActiveOuts = state.activeOuts || []; 
+      // ИСПРАВЛЕНО: Лимиты времени и кнопки перерывов применяются только к продавцам/кассирам
+      if (!isDir && !isZavSklad && !isInfoConsultant && !isSeniorCashier && !isGruzchik) { 
+          appState.currentAction = state.myActiveAction || ""; 
+          saveMemory("currentAction", appState.currentAction); 
+          renderTimeUI(); 
+          applyLimits(state); 
+      } else { 
+          if (!document.getElementById("content-adm-outs").classList.contains("hidden")) renderAdminOuts(); 
+      } 
+  }
+}
 
 function renderTradeInList() { let container = document.getElementById("tradein-list"); if (!container) return; container.innerHTML = tradeInModelsGlobal.map(m => { let isSel = (selectedTradeInModel === m); return `<div class="sc-item ${isSel ? 'selected' : ''}" onclick="selectTradeIn('${m}')"><div style="font-size:13px;">${m}</div></div>`; }).join(""); }
 function selectTradeIn(m) { selectedTradeInModel = m; renderTradeInList(); }
