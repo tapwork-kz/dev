@@ -2378,20 +2378,23 @@ async function renderTabelCalendarData(iin, containerId = "tabel-calendar-contai
 
   let violHtml = `<div style="margin-top:16px; padding-top:14px; border-top:1px dashed var(--border-color);">`;
   
-  // ИСПРАВЛЕНО: Зеленый цвет, дата с часами перенесена НАВЕРХ, детали — по центру, лишний дублирующийся текст удален
+  // ИСПРАВЛЕНО: Информация причины — серая по центру, дата и время — внизу, цвет основной (черный), размер 11px
   if (approvedOvertimes.length > 0) {
       violHtml += `<div class="grid-details-title" style="color:#27ae60; margin-top:4px; margin-bottom:8px; font-weight:bold; font-size:12px; text-transform:none; text-align:left;">Переработки</div>`;
       violHtml += approvedOvertimes.map(r => {
           let mObj = {};
           try { mObj = typeof r.meta === 'string' ? JSON.parse(r.meta) : (typeof r.metadata === 'string' ? JSON.parse(r.metadata) : (r.meta || r.metadata || {})); } catch(e){}
           let dStr = mObj.date || r.date || "";
-          let cleanDate = dStr.split(' ')[0]; // Забираем только чистую дату DD.MM.YYYY
+          let cleanDate = dStr.split(' ')[0]; 
           let timeInfo = (mObj.from_time && mObj.to_time) ? ` (${mObj.from_time} - ${mObj.to_time})` : " (полный день)";
           return `
           <div class="req-item" style="border-left-color: #27ae60; border-left-width: 2px; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; background: var(--bg-color, transparent);">
-              <div style="flex:1; min-width:0; padding-right:10px; display:flex; flex-direction:column; gap:3px;">
-                  <span style="color:gray; font-size:10px; display:inline-flex; align-items:center; gap:3px;"><span class="material-symbols-rounded" style="font-size:12px; color:gray;">schedule</span> ${cleanDate}${timeInfo}</span>
-                  <b style="font-size:12px; color:var(--text-color); display:inline-block; font-weight:bold;">${r.details || r.type || 'Переработка'}</b>
+              <div style="flex:1; min-width:0; padding-right:10px; display:flex; flex-direction:column; gap:4px;">
+                  <span style="color: gray; font-size: 13px; display: inline-block; line-height: 1.3; font-weight: normal;">${r.details || 'Переработка'}</span>
+                  
+                  <span style="color: var(--text-color); font-size: 11px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500;">
+                      <span class="material-symbols-rounded" style="font-size: 13px; color: var(--text-color);">schedule</span> ${cleanDate}${timeInfo}
+                  </span>
               </div>
               <div style="flex-shrink:0; display:flex; align-items:center; justify-content:center; width:28px; height:28px; background:rgba(39, 174, 96, 0.1); border-radius:50%;">
                   <span class="material-symbols-rounded" style="color:#27ae60; font-size:16px;">more_time</span>
