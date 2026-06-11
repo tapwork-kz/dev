@@ -166,15 +166,13 @@ function generateDatePanelHTML(idPrefix, onChangeFuncName, extraHtml = "") {
     
     let extraSection = extraHtml ? `<div style="margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border-color);">${extraHtml}</div>` : "";
     
-    // ИСПРАВЛЕНО: Инъекция кнопки фильтра сотрудников только для панели административной истории заявок
+    // ИСПРАВЛЕНО: Кнопка сотрудника теперь представляет собой ровную иконку 36х36px без текста, чтобы не ломать верстку
     let empBtnHtml = "";
     if (idPrefix === 'admin-hist') {
-        let empNameSelected = window.currentAdminHistEmpName || "Сотрудник";
         let empActiveStyle = window.currentAdminHistEmpIin ? "background:var(--btn-color); color:white; border-color:var(--btn-color);" : "background:var(--card-bg); border:1px solid var(--border-color); color:var(--text-color);";
         empBtnHtml = `
-        <div id="admin-hist-emp-filter-btn" style="position:relative; height:36px; padding:0 6px; border-radius:8px; display:flex; justify-content:center; align-items:center; ${empActiveStyle} font-size:11px; cursor:pointer; font-weight:bold; max-width:95px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; box-sizing:border-box;" onclick="window.openAdminHistEmpModal(event)">
-            <span class="material-symbols-rounded" style="font-size:15px; margin-right:2px; flex-shrink:0;">person</span>
-            <span id="admin-hist-emp-btn-text" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${empNameSelected}</span>
+        <div id="admin-hist-emp-filter-btn" style="position:relative; width:36px; height:36px; border-radius:8px; display:flex; justify-content:center; align-items:center; ${empActiveStyle} cursor:pointer; flex-shrink:0; box-sizing:border-box;" onclick="window.openAdminHistEmpModal(event)">
+            <span class="material-symbols-rounded" style="font-size:18px; flex-shrink:0;">person</span>
         </div>`;
     }
     
@@ -3191,23 +3189,51 @@ let currentHistFilter = 'all';
 function renderAdminHistory(filterType) {
   if(filterType) currentHistFilter = filterType; 
   
-  // ИСПРАВЛЕНО: Динамическая инъекция кнопки "Табель" в шапку истории, если её нет в HTML разметке
+  // Добавление кнопки "Табель" в шапку истории, если её ещё нет
   if (!document.getElementById('flt-hist-tabel')) {
       let btnAll = document.getElementById('flt-hist-all');
       if (btnAll && btnAll.parentElement) {
           let btnTabel = document.createElement('button');
           btnTabel.id = 'flt-hist-tabel';
           btnTabel.className = btnAll.className.replace('active-flt', '').trim();
-          btnTabel.style.margin = btnAll.style.margin;
-          btnTabel.style.padding = btnAll.style.padding;
-          btnTabel.innerText = 'Табель';
           btnTabel.onclick = () => renderAdminHistory('tabel');
           btnAll.parentNode.appendChild(btnTabel);
       }
   }
 
-  ['all', 'sales', 'pts', 'viol', 'tabel'].forEach(f => { let el = document.getElementById('flt-hist-' + f); if(el) el.classList.remove('active-flt'); }); 
-  let activeEl = document.getElementById('flt-hist-' + currentHistFilter); if(activeEl) activeEl.classList.add('active-flt');
+  // ИСПРАВЛЕНО: Выстраиваем контейнер строго в 1 строку без переносов
+  let btnAll = document.getElementById('flt-hist-all');
+  if (btnAll && btnAll.parentElement) {
+      btnAll.parentElement.style.display = "flex";
+      btnAll.parentElement.style.gap = "4px";
+      btnAll.parentElement.style.width = "100%";
+      btnAll.parentElement.style.marginBottom = "10px";
+  }
+
+  // ИСПРАВЛЕНО: Превращаем текст кнопок в компактные аккуратные иконки
+  ['all', 'sales', 'pts', 'viol', 'tabel'].forEach(f => { 
+      let el = document.getElementById('flt-hist-' + f); 
+      if(el) {
+          el.classList.remove('active-flt');
+          el.style.flex = "1";
+          el.style.minWidth = "0";
+          el.style.padding = "0";
+          el.style.height = "36px";
+          el.style.display = "flex";
+          el.style.alignItems = "center";
+          el.style.justifyContent = "center";
+          el.style.margin = "0";
+          
+          if (f === 'all') el.innerHTML = `<span class="material-symbols-rounded" style="font-size:18px;">box</span>`;
+          if (f === 'sales') el.innerHTML = `<span class="material-symbols-rounded" style="font-size:18px; color:#2ecc71;">sell</span>`;
+          if (f === 'pts') el.innerHTML = `<span class="material-symbols-rounded" style="font-size:18px; color:#f1c40f;">stars</span>`;
+          if (f === 'viol') el.innerHTML = `<span class="material-symbols-rounded" style="font-size:18px; color:#e74c3c;">gavel</span>`;
+          if (f === 'tabel') el.innerHTML = `<span class="material-symbols-rounded" style="font-size:18px; color:#3498db;">calendar_view_month</span>`;
+      }
+  }); 
+  
+  let activeEl = document.getElementById('flt-hist-' + currentHistFilter); 
+  if(activeEl) activeEl.classList.add('active-flt');
   
   let listContainer = document.getElementById("admin-history-list"); 
   if (!document.getElementById("admin-hist-panel")) { 
@@ -4961,10 +4987,15 @@ window.openAdminHistEmpModal = function(event) {
     let existingModal = document.getElementById("admin-hist-emp-modal-overlay");
     if (existingModal) { existingModal.remove(); return; }
     
-    // Извлекаем пользователей из скомпилированного штатного массива
     let emps = window.adminEmployeesGlobal || [];
-    // Отсекаем уволенных (у кого login_status равен False)
-    let activeEmps = emps.filter(e => e && e.name && String(e.login_status).toUpperCase() !== 'FALSE');
+    
+    // ИСПРАВЛЕНО: Убираем из списка всех, у кого в должности (role) есть слово "Промоутер"
+    let activeEmps = emps.filter(e => {
+        if (!e || !e.name || String(e.login_status).toUpperCase() === 'FALSE') return false;
+        let roleLow = String(e.role || "").toLowerCase();
+        if (roleLow.includes("промоутер")) return false;
+        return true;
+    });
     
     let modal = document.createElement("div");
     modal.id = "admin-hist-emp-modal-overlay";
@@ -4980,16 +5011,18 @@ window.openAdminHistEmpModal = function(event) {
     if (activeEmps.length === 0) {
         rowsHtml += `<div style="padding:16px; text-align:center; color:gray; font-size:12px;">Нет активных сотрудников</div>`;
     } else {
-        // Алфавитная сортировка людей для удобного поиска на смартфонах
         activeEmps.sort((a, b) => String(a.name).localeCompare(String(b.name), "ru"));
         
         rowsHtml += activeEmps.map(u => {
             let isSelected = window.currentAdminHistEmpIin === u.iin;
             let checkMark = isSelected ? `<span class="material-symbols-rounded" style="color:#2ecc71; font-size:16px;">check</span>` : '';
-            let deptStr = u.dept ? ` <span style="color:gray; font-size:10px;">(${u.dept})</span>` : '';
+            
+            // ИСПРАВЛЕНО: Теперь в скобках выводится РОЛЬ пользователя (u.role) вместо отдела
+            let roleStr = u.role ? ` <span style="color:gray; font-size:10px;">(${u.role})</span>` : '';
+            
             return `
                 <div style="padding:11px 12px; font-size:12px; color:var(--text-color); cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px; border-bottom:1px solid rgba(150,150,150,0.08); -webkit-tap-highlight-color:transparent;" onclick="window.selectAdminHistEmp('${u.iin}', '${u.name}')">
-                    <span style="font-weight:${isSelected ? 'bold' : 'normal'}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${u.name}${deptStr}</span>
+                    <span style="font-weight:${isSelected ? 'bold' : 'normal'}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${u.name}${roleStr}</span>
                     ${checkMark}
                 </div>
             `;
