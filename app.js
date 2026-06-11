@@ -164,10 +164,21 @@ function generateDatePanelHTML(idPrefix, onChangeFuncName, extraHtml = "") {
     let defStart = formatDateLocal(new Date(d.getFullYear(), d.getMonth(), 1)); 
     let defEnd = formatDateLocal(new Date(d.getFullYear(), d.getMonth() + 1, 0));
     
-    // Формируем блок с баллами (extraHtml), если он есть, отделяя его тонкой линией снизу
     let extraSection = extraHtml ? `<div style="margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border-color);">${extraHtml}</div>` : "";
     
-    return `<div class="inner-block card date-panel-wrapper" style="padding:12px; margin-bottom:12px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px;">${extraSection}<div class="no-swipe" style="display:flex; gap:6px; align-items:center; justify-content:space-between; width:100%;" ontouchstart="event.stopPropagation();" ontouchmove="event.stopPropagation();"><input type="date" id="${idPrefix}-start" value="${defStart}" onchange="${onChangeFuncName}('search')" style="flex:1; min-width:0; background:var(--card-bg); border:1px solid var(--border-color); color:var(--text-color); border-radius:8px; padding:0 2px; height:36px; text-align:center; box-sizing:border-box; margin:0; font-family:inherit; font-size:13px; letter-spacing:-0.5px; -webkit-appearance:none; appearance:none;"><span style="color:gray; font-weight:bold; font-size:16px; flex-shrink:0; margin:0 2px;">-</span><input type="date" id="${idPrefix}-end" value="${defEnd}" onchange="${onChangeFuncName}('search')" style="flex:1; min-width:0; background:var(--card-bg); border:1px solid var(--border-color); color:var(--text-color); border-radius:8px; padding:0 2px; height:36px; text-align:center; box-sizing:border-box; margin:0; font-family:inherit; font-size:13px; letter-spacing:-0.5px; -webkit-appearance:none; appearance:none;"><div style="position:relative; width:36px; height:36px; flex-shrink:0; overflow:hidden;"><input type="date" onchange="${onChangeFuncName}('single', this.value); this.value='';" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:5;"><div style="margin:0; width:100%; height:100%; border-radius:8px; padding:0; display:flex; justify-content:center; align-items:center; background:var(--card-bg); border:1px solid var(--border-color); color:var(--text-color); font-size:16px; pointer-events:none; box-sizing:border-box;"><span class="material-symbols-rounded" style="font-size:18px;">calendar_today</span></div></div><div style="position:relative; width:36px; height:36px; flex-shrink:0; overflow:hidden;"><input type="month" onchange="${onChangeFuncName}('month', this.value); this.value='';" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:5;"><div style="margin:0; width:100%; height:100%; border-radius:8px; padding:0; display:flex; justify-content:center; align-items:center; background:var(--card-bg); border:1px solid var(--border-color); color:var(--text-color); font-size:16px; pointer-events:none; box-sizing:border-box;"><span class="material-symbols-rounded" style="font-size:18px;">calendar_month</span></div></div></div></div>`;
+    // ИСПРАВЛЕНО: Инъекция кнопки фильтра сотрудников только для панели административной истории заявок
+    let empBtnHtml = "";
+    if (idPrefix === 'admin-hist') {
+        let empNameSelected = window.currentAdminHistEmpName || "Сотрудник";
+        let empActiveStyle = window.currentAdminHistEmpIin ? "background:var(--btn-color); color:white; border-color:var(--btn-color);" : "background:var(--card-bg); border:1px solid var(--border-color); color:var(--text-color);";
+        empBtnHtml = `
+        <div id="admin-hist-emp-filter-btn" style="position:relative; height:36px; padding:0 6px; border-radius:8px; display:flex; justify-content:center; align-items:center; ${empActiveStyle} font-size:11px; cursor:pointer; font-weight:bold; max-width:95px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:0; box-sizing:border-box;" onclick="window.openAdminHistEmpModal(event)">
+            <span class="material-symbols-rounded" style="font-size:15px; margin-right:2px; flex-shrink:0;">person</span>
+            <span id="admin-hist-emp-btn-text" style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${empNameSelected}</span>
+        </div>`;
+    }
+    
+    return `<div class="inner-block card date-panel-wrapper" style="padding:12px; margin-bottom:12px; background:var(--card-bg); border:1px solid var(--border-color); border-radius:12px;">${extraSection}<div class="no-swipe" style="display:flex; gap:5px; align-items:center; justify-content:space-between; width:100%;" ontouchstart="event.stopPropagation();" ontouchmove="event.stopPropagation();"><input type="date" id="${idPrefix}-start" value="${defStart}" onchange="${onChangeFuncName}('search')" style="flex:1; min-width:0; background:var(--card-bg); border:1px solid var(--border-color); color:var(--text-color); border-radius:8px; padding:0 2px; height:36px; text-align:center; box-sizing:border-box; margin:0; font-family:inherit; font-size:13px; letter-spacing:-0.5px; -webkit-appearance:none; appearance:none;"><span style="color:gray; font-weight:bold; font-size:16px; flex-shrink:0; margin:0 2px;">-</span><input type="date" id="${idPrefix}-end" value="${defEnd}" onchange="${onChangeFuncName}('search')" style="flex:1; min-width:0; background:var(--card-bg); border:1px solid var(--border-color); color:var(--text-color); border-radius:8px; padding:0 2px; height:36px; text-align:center; box-sizing:border-box; margin:0; font-family:inherit; font-size:13px; letter-spacing:-0.5px; -webkit-appearance:none; appearance:none;"><div style="position:relative; width:36px; height:36px; flex-shrink:0; overflow:hidden;"><input type="date" onchange="${onChangeFuncName}('single', this.value); this.value='';" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:5;"><div style="margin:0; width:100%; height:100%; border-radius:8px; padding:0; display:flex; justify-content:center; align-items:center; background:var(--card-bg); border:1px solid var(--border-color); color:var(--text-color); font-size:16px; pointer-events:none; box-sizing:border-box;"><span class="material-symbols-rounded" style="font-size:18px;">calendar_today</span></div></div><div style="position:relative; width:36px; height:36px; flex-shrink:0; overflow:hidden;"><input type="month" onchange="${onChangeFuncName}('month', this.value); this.value='';" style="position:absolute; top:0; left:0; width:100%; height:100%; opacity:0; cursor:pointer; z-index:5;"><div style="margin:0; width:100%; height:100%; border-radius:8px; padding:0; display:flex; justify-content:center; align-items:center; background:var(--card-bg); border:1px solid var(--border-color); color:var(--text-color); font-size:16px; pointer-events:none; box-sizing:border-box;"><span class="material-symbols-rounded" style="font-size:18px;">calendar_month</span></div></div>${empBtnHtml}</div></div>`;
 }
 
 function setPanelDates(type, val, idPrefix, reloadFn) {
@@ -3178,13 +3189,67 @@ function markAsSeen(id, el) { let stored = {}; try { stored = JSON.parse(localSt
 
 let currentHistFilter = 'all';
 function renderAdminHistory(filterType) {
-  if(filterType) currentHistFilter = filterType; ['all', 'sales', 'pts', 'viol'].forEach(f => { let el = document.getElementById('flt-hist-' + f); if(el) el.classList.remove('active-flt'); }); let activeEl = document.getElementById('flt-hist-' + currentHistFilter); if(activeEl) activeEl.classList.add('active-flt');
-  let listContainer = document.getElementById("admin-history-list"); if (!document.getElementById("admin-hist-panel")) { let panelDiv = document.createElement("div"); panelDiv.id = "admin-hist-panel"; panelDiv.innerHTML = generateDatePanelHTML('admin-hist', 'window.triggerAdminHistReload'); listContainer.parentNode.insertBefore(panelDiv, listContainer); window.triggerAdminHistReload = function(type, val) { if(type) setPanelDates(type, val, 'admin-hist', () => renderAdminHistory(currentHistFilter)); else renderAdminHistory(currentHistFilter); }; }
-  let startD = document.getElementById("admin-hist-start").value; let endD = document.getElementById("admin-hist-end").value; 
-  let sP = startD.split('-'); let startTime = new Date(sP[0], sP[1]-1, sP[2], 0, 0, 0).getTime(); 
-  let eP = endD.split('-'); let endTime = new Date(eP[0], eP[1]-1, eP[2], 23, 59, 59).getTime();
-  let aHist = window.adminHistoryGlobal || []; aHist = aHist.filter(r => { let rd = parseCustomDate(r.date); return rd >= startTime && rd <= endTime; });
-  if (currentHistFilter === 'sales') { aHist = aHist.filter(r => ["Продажа СЦ/Дефект", "Продажа Trade-In", "Горячий чек"].includes(r.type)); } else if (currentHistFilter === 'pts') { aHist = aHist.filter(r => r.type === "Баллы мотивации"); } else if (currentHistFilter === 'viol') { aHist = aHist.filter(r => r.type === "Замечание" || r.type === "Штраф" || r.type === "Запрос на штраф"); }
+  if(filterType) currentHistFilter = filterType; 
+  
+  // ИСПРАВЛЕНО: Динамическая инъекция кнопки "Табель" в шапку истории, если её нет в HTML разметке
+  if (!document.getElementById('flt-hist-tabel')) {
+      let btnAll = document.getElementById('flt-hist-all');
+      if (btnAll && btnAll.parentElement) {
+          let btnTabel = document.createElement('button');
+          btnTabel.id = 'flt-hist-tabel';
+          btnTabel.className = btnAll.className.replace('active-flt', '').trim();
+          btnTabel.style.margin = btnAll.style.margin;
+          btnTabel.style.padding = btnAll.style.padding;
+          btnTabel.innerText = 'Табель';
+          btnTabel.onclick = () => renderAdminHistory('tabel');
+          btnAll.parentNode.appendChild(btnTabel);
+      }
+  }
+
+  ['all', 'sales', 'pts', 'viol', 'tabel'].forEach(f => { let el = document.getElementById('flt-hist-' + f); if(el) el.classList.remove('active-flt'); }); 
+  let activeEl = document.getElementById('flt-hist-' + currentHistFilter); if(activeEl) activeEl.classList.add('active-flt');
+  
+  let listContainer = document.getElementById("admin-history-list"); 
+  if (!document.getElementById("admin-hist-panel")) { 
+      let panelDiv = document.createElement("div"); 
+      panelDiv.id = "admin-hist-panel"; 
+      panelDiv.innerHTML = generateDatePanelHTML('admin-hist', 'window.triggerAdminHistReload'); 
+      listContainer.parentNode.insertBefore(panelDiv, listContainer); 
+      window.triggerAdminHistReload = function(type, val) { if(type) setPanelDates(type, val, 'admin-hist', () => renderAdminHistory(currentHistFilter)); else renderAdminHistory(currentHistFilter); }; 
+  }
+  
+  let startD = document.getElementById("admin-hist-start").value; 
+  let endD = document.getElementById("admin-hist-end").value; 
+  let sP = startD.split('-'); let startTime = new Date(sP[0], sP[1]-1, sP[2], 0, 0, 0).getTime(); 
+  let eP = endD.split('-'); let endTime = new Date(eP[0], eP[1]-1, eP[2], 23, 59, 59).getTime();
+  
+  let aHist = window.adminHistoryGlobal || []; 
+  aHist = aHist.filter(r => { let rd = parseCustomDate(r.date); return rd >= startTime && rd <= endTime; });
+  
+  // Фильтрация карточек по вкладкам категорий
+  if (currentHistFilter === 'sales') { 
+      aHist = aHist.filter(r => ["Продажа СЦ/Дефект", "Продажа Trade-In", "Горячий чек"].includes(r.type)); 
+  } else if (currentHistFilter === 'pts') { 
+      aHist = aHist.filter(r => r.type === "Баллы мотивации"); 
+  } else if (currentHistFilter === 'viol') { 
+      aHist = aHist.filter(r => r.type === "Замечание" || r.type === "Штраф" || r.type === "Запрос на штраф"); 
+  } else if (currentHistFilter === 'tabel') {
+      // ИСПРАВЛЕНО: Вывод строго переработок, отпусков, обмена и исправления смен
+      aHist = aHist.filter(r => {
+          let tLow = String(r.type || "").toLowerCase();
+          return tLow.includes("переработ") || tLow.includes("отпуск") || tLow.includes("обмен") || tLow.includes("исправл");
+      });
+  }
+  
+  // ИСПРАВЛЕНО: Живой сквозной фильтр по конкретному выбранному сотруднику
+  if (window.currentAdminHistEmpIin) {
+      let filterIin = String(window.currentAdminHistEmpIin).trim();
+      aHist = aHist.filter(r => 
+          String(r.authorIin).trim() === filterIin || 
+          String(r.targetIin).trim() === filterIin
+      );
+  }
+  
   listContainer.innerHTML = groupAndRenderByMonth(aHist, r => {
     let stColor = r.status === "approved" || r.status === "approved_notify_zav" ? "#27ae60" : (r.status === "rejected" || r.status === "rejected_by_user" || r.status === "rejected_notify_user" || r.status === "rejected_notify_zav" ? "#e74c3c" : "#95a5a6"); let stText = r.status === "approved" || r.status === "approved_notify_zav" ? "Одобрен" : (String(r.status).includes("rejected") ? "Отклонен" : "Просмотрен"); if(r.status === "rejected_by_user") stText = "Отклонен сменщиком"; if (r.type === "Исправление смены") { if (r.status.includes("approved")) stText = "Исправлен"; else if (r.status.includes("rejected")) stText = "Отклонен"; }
     let rawDesc = String(r.details || ""); let approverName = ""; let metaObj = {}; try { metaObj = JSON.parse(r.meta || r.metadata || "{}"); } catch(e){} let match = rawDesc.match(/\n\[(.*?)\]$/); if (match) { approverName = formatShortName(match[1]); rawDesc = rawDesc.replace(/\n\[(.*?)\]$/, "").trim(); } if (metaObj.approver) approverName = formatShortName(metaObj.approver); if (!approverName && r.approver) approverName = formatShortName(r.approver);
@@ -4882,4 +4947,94 @@ window.renderDeliveryPricesList = function(searchQ) {
             </div>
         `;
     }).join("");
+};
+
+// ==========================================================
+// ИСПРАВЛЕНО: УПРАВЛЕНИЕ СЕЛЕКТОРОМ АКТИВНЫХ СОТРУДНИКОВ ДЛЯ ИСТОРИИ
+// ==========================================================
+window.currentAdminHistEmpIin = null;
+window.currentAdminHistEmpName = "Сотрудник";
+
+window.openAdminHistEmpModal = function(event) {
+    if(event) event.stopPropagation();
+    
+    let existingModal = document.getElementById("admin-hist-emp-modal-overlay");
+    if (existingModal) { existingModal.remove(); return; }
+    
+    // Извлекаем пользователей из скомпилированного штатного массива
+    let emps = window.adminEmployeesGlobal || [];
+    // Отсекаем уволенных (у кого login_status равен False)
+    let activeEmps = emps.filter(e => e && e.name && String(e.login_status).toUpperCase() !== 'FALSE');
+    
+    let modal = document.createElement("div");
+    modal.id = "admin-hist-emp-modal-overlay";
+    modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.3); backdrop-filter:blur(2px); z-index:10000; display:flex; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;";
+    
+    let rowsHtml = `
+        <div style="padding:10px 12px; font-size:12px; font-weight:bold; color:#e74c3c; cursor:pointer; border-bottom:1px solid var(--border-color); display:flex; align-items:center; gap:6px;" onclick="window.selectAdminHistEmp(null, 'Сотрудник')">
+            <span class="material-symbols-rounded" style="font-size:16px;">restart_alt</span>
+            <span>Сбросить фильтр (Все)</span>
+        </div>
+    `;
+    
+    if (activeEmps.length === 0) {
+        rowsHtml += `<div style="padding:16px; text-align:center; color:gray; font-size:12px;">Нет активных сотрудников</div>`;
+    } else {
+        // Алфавитная сортировка людей для удобного поиска на смартфонах
+        activeEmps.sort((a, b) => String(a.name).localeCompare(String(b.name), "ru"));
+        
+        rowsHtml += activeEmps.map(u => {
+            let isSelected = window.currentAdminHistEmpIin === u.iin;
+            let checkMark = isSelected ? `<span class="material-symbols-rounded" style="color:#2ecc71; font-size:16px;">check</span>` : '';
+            let deptStr = u.dept ? ` <span style="color:gray; font-size:10px;">(${u.dept})</span>` : '';
+            return `
+                <div style="padding:11px 12px; font-size:12px; color:var(--text-color); cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:8px; border-bottom:1px solid rgba(150,150,150,0.08); -webkit-tap-highlight-color:transparent;" onclick="window.selectAdminHistEmp('${u.iin}', '${u.name}')">
+                    <span style="font-weight:${isSelected ? 'bold' : 'normal'}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1;">${u.name}${deptStr}</span>
+                    ${checkMark}
+                </div>
+            `;
+        }).join("");
+    }
+    
+    modal.innerHTML = `
+        <div class="card" style="width:100%; max-width:320px; background:var(--card-bg); padding:10px; border-radius:14px; box-shadow:0 6px 20px rgba(0,0,0,0.15); border:1px solid var(--border-color); display:flex; flex-direction:column; max-height:65vh;" onclick="event.stopPropagation();">
+            <h4 style="margin:4px 0 10px 6px; font-size:13px; color:var(--text-color); display:flex; align-items:center; gap:4px;">
+                <span class="material-symbols-rounded" style="font-size:16px; color:#2ecc71;">filter_alt</span> Выберите сотрудника
+            </h4>
+            <div style="flex:1; overflow-y:auto; display:flex; flex-direction:column;">
+                ${rowsHtml}
+            </div>
+            <button class="btn-gray" onclick="document.getElementById('admin-hist-emp-modal-overlay').remove();" style="margin-top:8px; height:34px; font-size:12px; width:100%;">Закрыть</button>
+        </div>
+    `;
+    
+    modal.onclick = () => modal.remove();
+    document.body.appendChild(modal);
+};
+
+window.selectAdminHistEmp = function(iin, name) {
+    window.currentAdminHistEmpIin = iin;
+    window.currentAdminHistEmpName = name;
+    
+    let btn = document.getElementById("admin-hist-emp-filter-btn");
+    let txt = document.getElementById("admin-hist-emp-btn-text");
+    
+    if (txt) txt.innerText = name;
+    if (btn) {
+        if (iin) {
+            btn.style.background = "var(--btn-color)";
+            btn.style.color = "white";
+            btn.style.borderColor = "var(--btn-color)";
+        } else {
+            btn.style.background = "var(--card-bg)";
+            btn.style.borderColor = "var(--border-color)";
+            btn.style.color = "var(--text-color)";
+        }
+    }
+    
+    let overlay = document.getElementById("admin-hist-emp-modal-overlay");
+    if (overlay) overlay.remove();
+    
+    // Перезапуск отрисовки истории с новыми фильтрами
+    renderAdminHistory(currentHistFilter);
 };
