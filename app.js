@@ -1178,19 +1178,38 @@ function renderDashboardData(data, isSilent = false) {
 
   if (isSeniorCashier) isCashier = false; 
 
-  // ИСПРАВЛЕНО: Кнопка Плюс теперь создается и показывается АБСОЛЮТНО ДЛЯ ВСЕХ (включая Продавцов и Кассиров)
+  // ИСПРАВЛЕНО: Кнопка плюс теперь принудительно открыта абсолютно для всех (включая Продавцов и Кассиров)
   let mainTabs = document.getElementById("main-tabs");
   let admPlus = document.getElementById("nav-adm-plus-btn");
+  let isOnlyDirOrSup = roleStr.includes("директор") || roleStr.includes("управляющий") || roleStr.includes("супервайзер");
   
-  if (!admPlus && mainTabs) {
-      admPlus = document.createElement("div");
-      admPlus.id = "nav-adm-plus-btn";
-      admPlus.style = "font-size:28px; font-weight:300; color:var(--text-color); opacity:0.4; cursor:pointer; margin-right:1px; display:flex; align-items:center; justify-content:center; width:32px; height:32px; -webkit-tap-highlight-color:transparent; flex-shrink:0;";
-      admPlus.innerHTML = `<span class="material-symbols-rounded" style="font-size:28px;">add</span>`;
-      admPlus.onclick = (e) => { e.stopPropagation(); window.toggleAdminPlusMenu(); };
-      mainTabs.parentNode.insertBefore(admPlus, mainTabs);
+  // Включаем отображение кнопки "+" для всех без исключения
+  let isAllowedPlusMenu = true; 
+
+  if (isAllowedPlusMenu) {
+      if (!admPlus && mainTabs) {
+          admPlus = document.createElement("div");
+          admPlus.id = "nav-adm-plus-btn";
+          admPlus.style = "font-size:28px; font-weight:300; color:var(--text-color); opacity:0.4; cursor:pointer; margin-right:1px; display:flex; align-items:center; justify-content:center; width:32px; height:32px; -webkit-tap-highlight-color:transparent; flex-shrink:0;";
+          admPlus.innerHTML = `<span class="material-symbols-rounded" style="font-size:28px;">add</span>`;
+          admPlus.onclick = (e) => { e.stopPropagation(); window.toggleAdminPlusMenu(); };
+          mainTabs.parentNode.insertBefore(admPlus, mainTabs);
+      }
+      if (admPlus) admPlus.style.display = "flex";
+  } else {
+      if (admPlus) admPlus.style.display = "none";
   }
-  if (admPlus) admPlus.style.display = "flex";
+  
+  if (isAllowedPlusMenu) {
+      if (!admPlus && mainTabs) {
+          admPlus = document.createElement("div");
+          admPlus.id = "nav-adm-plus-btn";
+          admPlus.style = "font-size:28px; font-weight:300; color:var(--text-color); opacity:0.4; cursor:pointer; margin-right:1px; display:flex; align-items:center; justify-content:center; width:32px; height:32px; -webkit-tap-highlight-color:transparent; flex-shrink:0;";
+          admPlus.innerHTML = `<span class="material-symbols-rounded" style="font-size:28px;">add</span>`;
+          admPlus.onclick = (e) => { e.stopPropagation(); window.toggleAdminPlusMenu(); };
+          mainTabs.parentNode.insertBefore(admPlus, mainTabs);
+      }
+      if (admPlus) admPlus.style.display = "flex";
   } else {
       if (admPlus) admPlus.style.display = "none";
   } 
