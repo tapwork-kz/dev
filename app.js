@@ -2644,6 +2644,12 @@ window.toggleAdminPlusMenu = function() {
                 <span class="material-symbols-rounded" style="color:#f39c12; font-size:18px;">more_time</span>
                 <span>Подать на переработку</span>
             </div>`;
+            // Дописать в конец сборки строк переменной menuHtml внутри window.toggleAdminPlusMenu:
+    menuHtml += `
+    <div style="padding:10px 12px; font-size:13px; font-weight:bold; color:var(--text-color); cursor:pointer; display:flex; align-items:center; gap:8px; border-radius:0px; -webkit-tap-highlight-color:transparent; border-top:1px solid var(--border-color);" onclick="window.openDeliveryPricesModal();">
+        <span class="material-symbols-rounded" style="color:#3498db; font-size:18px;">local_shipping</span>
+        <span>Прайс по доставкам</span>
+    </div>`;
     }
     
     menu.innerHTML = menuHtml;
@@ -4744,4 +4750,111 @@ window.submitCashierMetricRequest = async function(subheading, itemName, pts, kp
         console.error(err);
         showToast("Не удалось отправить запрос", true);
     }
+};
+
+// ==========================================
+// ИНТЕРАКТИВНЫЙ МОДАЛЬНЫЙ ПРАЙС ДОСТАВОК
+// ==========================================
+window.openDeliveryPricesModal = function() {
+    // Закрываем выпадающее меню, если оно было открыто
+    let plusMenu = document.getElementById("admin-plus-dropdown-menu");
+    if (plusMenu) plusMenu.remove();
+
+    let existingModal = document.getElementById("delivery-prices-modal-overlay");
+    if (existingModal) existingModal.remove();
+    
+    let modal = document.createElement("div");
+    modal.id = "delivery-prices-modal-overlay";
+    modal.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); backdrop-filter:blur(3px); z-index:10000; display:flex; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;";
+    modal.innerHTML = `
+        <div class="card" style="width:100%; max-width:380px; background:var(--card-bg); padding:14px; border-radius:16px; box-shadow:0 8px 24px rgba(0,0,0,0.2); border:1px solid var(--border-color); display:flex; flex-direction:column; max-height:80vh; animation:slide-up-fade 0.2s ease;" onclick="event.stopPropagation();">
+            <h3 style="margin:0 0 12px 0; font-size:14px; text-align:left; display:flex; align-items:center; gap:6px; color:var(--text-color);">
+                <span class="material-symbols-rounded" style="color:#3498db; font-size:18px;">local_shipping</span> 
+                Прайс по доставкам
+            </h3>
+            
+            <div style="margin-bottom:12px; position:relative; width:100%;">
+                <input type="text" id="delivery-search-input" placeholder="Поиск населенного пункта или района..." style="width:100%; height:38px; box-sizing:border-box; border-radius:8px; border:1px solid var(--border-color); background:var(--inner-bg); color:var(--text-color); padding:0 10px 0 34px; font-size:13px;">
+                <span class="material-symbols-rounded" style="position:absolute; left:10px; top:10px; color:gray; font-size:18px;">search</span>
+            </div>
+            
+            <div id="delivery-prices-scroll-area" style="flex:1; overflow-y:auto; margin-bottom:12px; padding-right:2px; display:flex; flex-direction:column; gap:8px;">
+                <div style="text-align:center; color:gray; font-size:12px; padding:20px 0;">Загрузка данных прайса...</div>
+            </div>
+            
+            <button class="btn-gray" onclick="document.getElementById('delivery-prices-modal-overlay').remove();" style="margin:0; padding:10px; font-size:13px; height:38px; width:100%;">Закрыть</button>
+        </div>
+    `;
+    modal.onclick = () => modal.remove();
+    document.body.appendChild(modal);
+    
+    window.currentDeliveryItemsRaw = [];
+    
+    // Вешаем слушатель для живого поиска без перезагрузок страницы
+    document.getElementById("delivery-search-input").addEventListener("input", function(e) {
+        window.renderDeliveryPricesList(e.target.value.trim());
+    });
+    
+    // Загружаем актуальные данные из Supabase
+    (async () => {
+        try {
+            let { data, error } = await supabaseClient
+                .from('delivery_prices')
+                .select('*')
+                .order('date', { ascending: false })
+                .limit(1);
+                
+            if (error) throw error;
+            
+            if (data && data.length > 0 && data[0].prices_data) {
+                window.currentDeliveryItemsRaw = data[0].prices_data;
+                window.renderDeliveryPricesList(""); // Первый рендер без фильтра
+            } else {
+                document.getElementById("delivery-prices-scroll-area").innerHTML = `<p style="text-align:center; color:gray; font-size:12px; padding:20px 0;">Данные прайса отсутствуют в базе</p>`;
+            }
+        } catch (err) {
+            console.error(err);
+            document.getElementById("delivery-prices-scroll-area").innerHTML = `<p style="text-align:center; color:gray; font-size:12px; padding:20px 0;">Ошибка соединения с базой</p>`;
+        }
+    })();
+};
+
+// Функция фильтрации и вывода карточек прайса
+window.renderDeliveryPricesList = function(searchQ) {
+    let scrollArea = document.getElementById("delivery-prices-scroll-area");
+    if (!scrollArea) return;
+    
+    let query = String(searchQ).toLowerCase();
+    let filtered = window.currentDeliveryItemsRaw;
+    
+    if (query) {
+        filtered = window.currentDeliveryItemsRaw.filter(item => 
+            String(item.region).toLowerCase().includes(query) || 
+            String(item.locality).toLowerCase().includes(query)
+        );
+    }
+    
+    if (filtered.length === 0) {
+        scrollArea.innerHTML = `<p style="text-align:center; color:gray; font-size:12px; padding:20px 0;">Ничего не найдено</p>`;
+        return;
+    }
+    
+    scrollArea.innerHTML = filtered.map(item => {
+        return `
+            <div style="background:var(--inner-bg, rgba(150,150,150,0.04)); border:1px solid var(--border-color); border-radius:10px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                <div style="display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;">
+                    <span style="font-size:12px; font-weight:bold; color:var(--text-color); line-height:1.2; word-break:break-word;">${item.locality || "—"}</span>
+                    <span style="font-size:10px; color:gray; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Район: ${item.region || "—"}</span>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0;">
+                    <span style="background:rgba(39, 174, 96, 0.12); color:#27ae60; font-size:11px; font-weight:bold; padding:4px 8px; border-radius:6px; white-space:nowrap;">
+                        ${item.price}
+                    </span>
+                    <span style="font-size:9px; color:gray; text-align:right; max-width:120px; line-height:1.1; word-break:break-word;">
+                        ${item.days || "—"}
+                    </span>
+                </div>
+            </div>
+        `;
+    }).join("");
 };
