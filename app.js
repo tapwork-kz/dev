@@ -4,7 +4,7 @@ window.onunhandledrejection = function(event) { alert("ОШИБКА ПРОМИС
 const SUPABASE_URL = 'https://ceuidvufumuabycpvhsi.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_OvuWjouzPXqDo1D6fmeksA_IZ1ITaIR';
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxb2UW5ctVar9QhWmjI-IIFA1EOxDCovRDoNBcbN31x4L4-mCh1lGcF-ZdH-62pUrbR/exec";
+const GAS_URL = "https://script.google.com/macros/s/AKfycbwCIvVCOMczNF17tL1C_0BOFWjxb0bkbpFLgWdoHnWf9_Al5a2oHOj7LKpJEdPEDlxNsg/exec";
 
 let tg = window.Telegram ? window.Telegram.WebApp : null; if (tg) { tg.expand(); }
 // --- НАСТРОЙКА WEB PUSH ---
